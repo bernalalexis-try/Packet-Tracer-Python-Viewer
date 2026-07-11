@@ -269,6 +269,100 @@ def parsear_dhcp(lineas):
     return pools
 
 
+def parsear_protocolos_dinamicos(lineas):
+    protocolos = []
+    actual = None
+
+    for linea in lineas:
+        contenido = linea.strip()
+
+        m_ospf = re.match(r"router ospf (\S+)", contenido)
+        m_eigrp = re.match(r"router eigrp (\S+)", contenido)
+
+        if not linea.startswith(" ") and m_ospf:
+            if actual:
+                protocolos.append(actual)
+            actual = {"tipo": "OSPF", "id": m_ospf.group(1), "router_id": None, "networks": []}
+            continue
+
+        if not linea.startswith(" ") and m_eigrp:
+            if actual:
+                protocolos.append(actual)
+            actual = {"tipo": "EIGRP", "id": m_eigrp.group(1), "router_id": None, "networks": []}
+            continue
+
+        if actual is None:
+            continue
+
+        if contenido == "!" or (not linea.startswith(" ") and contenido != ""):
+            protocolos.append(actual)
+            actual = None
+            continue
+
+        m_net_ospf = re.match(r"network (\S+) (\S+) area (\S+)", contenido)
+        m_net_eigrp = re.match(r"network (\S+)(?: (\S+))?$", contenido)
+        m_rid = re.match(r"router-id (\S+)", contenido)
+
+        if actual["tipo"] == "OSPF" and m_net_ospf:
+            actual["networks"].append(f"{m_net_ospf.group(1)} {m_net_ospf.group(2)} area {m_net_ospf.group(3)}")
+        elif actual["tipo"] == "EIGRP" and m_net_eigrp:
+            wildcard = f" {m_net_eigrp.group(2)}" if m_net_eigrp.group(2) else ""
+            actual["networks"].append(f"{m_net_eigrp.group(1)}{wildcard}")
+        elif m_rid:
+            actual["router_id"] = m_rid.group(1)
+
+    if actual:
+        protocolos.append(actual)
+
+    return protocolos
+
+
+def parsear_redundancia(lineas):
+    grupos = []
+    interfaz_actual = None
+
+    for linea in lineas:
+        if not linea.startswith(" ") and linea.lower().startswith("interface "):
+            interfaz_actual = linea.split(" ", 1)[1].strip()
+            continue
+
+        contenido = linea.strip()
+
+        m_hsrp_ip = re.match(r"standby (\d+) ip (\S+)", contenido)
+        m_hsrp_prio = re.match(r"standby (\d+) priority (\d+)", contenido)
+        m_hsrp_preempt = re.match(r"standby (\d+) preempt", contenido)
+        m_vrrp_ip = re.match(r"vrrp (\d+) ip (\S+)", contenido)
+        m_vrrp_prio = re.match(r"vrrp (\d+) priority (\d+)", contenido)
+
+        def obtener_grupo(protocolo, numero):
+            for g in grupos:
+                if g["interfaz"] == interfaz_actual and g["protocolo"] == protocolo and g["grupo"] == numero:
+                    return g
+            g = {
+                "interfaz": interfaz_actual,
+                "protocolo": protocolo,
+                "grupo": numero,
+                "ip_virtual": None,
+                "prioridad": None,
+                "preempt": False,
+            }
+            grupos.append(g)
+            return g
+
+        if m_hsrp_ip:
+            obtener_grupo("HSRP", m_hsrp_ip.group(1))["ip_virtual"] = m_hsrp_ip.group(2)
+        elif m_hsrp_prio:
+            obtener_grupo("HSRP", m_hsrp_prio.group(1))["prioridad"] = m_hsrp_prio.group(2)
+        elif m_hsrp_preempt:
+            obtener_grupo("HSRP", m_hsrp_preempt.group(1))["preempt"] = True
+        elif m_vrrp_ip:
+            obtener_grupo("VRRP", m_vrrp_ip.group(1))["ip_virtual"] = m_vrrp_ip.group(2)
+        elif m_vrrp_prio:
+            obtener_grupo("VRRP", m_vrrp_prio.group(1))["prioridad"] = m_vrrp_prio.group(2)
+
+    return grupos
+
+
 def construir_entradas(interfaces, rutas_estaticas):
     entradas = {}
 
@@ -451,6 +545,43 @@ def mostrar_red(lineas):
         print("  Sin pools DHCP configurados.")
 
 
+def mostrar_protocolos_dinamicos(lineas):
+    protocolos = parsear_protocolos_dinamicos(lineas)
+
+    if not protocolos:
+        print("No se detectaron protocolos de enrutamiento dinamico (OSPF/EIGRP).")
+        return
+
+    for proto in protocolos:
+        print(f"\n{proto['tipo']} (proceso/AS {proto['id']})")
+        print(f"  Router ID  : {proto['router_id'] or 'no configurado'}")
+        if proto["networks"]:
+            print("  Redes anunciadas:")
+            for red in proto["networks"]:
+                print(f"    network {red}")
+        else:
+            print("  Sin redes anunciadas.")
+
+
+def mostrar_redundancia(lineas):
+    grupos = parsear_redundancia(lineas)
+
+    if not grupos:
+        print("No se detecto HSRP ni VRRP configurado.")
+        return
+
+    for g in grupos:
+        print(f"\n{g['interfaz']}  [{g['protocolo']} grupo {g['grupo']}]")
+        print(f"  IP virtual : {g['ip_virtual'] or 'no configurada'}")
+        print(f"  Prioridad  : {g['prioridad'] or 'por defecto (100)'}")
+        if g["protocolo"] == "HSRP":
+            print(f"  Preempt    : {'si' if g['preempt'] else 'no'}")
+
+
+def mostrar_config_raw(lineas):
+    print("\n".join(lineas))
+
+
 def mostrar_todo(nombre, datos_router):
     print("\n=== IDENTIDAD Y HARDWARE ===")
     mostrar_identidad(nombre, datos_router)
@@ -462,6 +593,12 @@ def mostrar_todo(nombre, datos_router):
     mostrar_seguridad(datos_router["lineas"])
     print("\n=== RED (VLANs / NAT / DHCP) ===")
     mostrar_red(datos_router["lineas"])
+    print("\n=== PROTOCOLOS DE ENRUTAMIENTO DINAMICO ===")
+    mostrar_protocolos_dinamicos(datos_router["lineas"])
+    print("\n=== HSRP / VRRP ===")
+    mostrar_redundancia(datos_router["lineas"])
+    print("\n=== CONFIG COMPLETO (RAW) ===")
+    mostrar_config_raw(datos_router["lineas"])
 
 
 MENU = """
@@ -470,7 +607,10 @@ MENU = """
 3. Ruteo
 4. Seguridad
 5. Red (VLANs / NAT / DHCP)
-6. Todo
+6. Protocolos de enrutamiento dinamico
+7. HSRP / VRRP
+8. Config completo (raw)
+9. Todo
 0. Volver
 """
 
@@ -498,6 +638,15 @@ def menu_router(nombre, datos_router):
             print()
             mostrar_red(datos_router["lineas"])
         elif opcion == "6":
+            print()
+            mostrar_protocolos_dinamicos(datos_router["lineas"])
+        elif opcion == "7":
+            print()
+            mostrar_redundancia(datos_router["lineas"])
+        elif opcion == "8":
+            print()
+            mostrar_config_raw(datos_router["lineas"])
+        elif opcion == "9":
             mostrar_todo(nombre, datos_router)
         else:
             print("Opcion invalida.")
