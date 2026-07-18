@@ -6,9 +6,10 @@ import sys
 
 def encontrar_xml():
     base = os.path.dirname(os.path.abspath(__file__))
-    candidatos = glob.glob(os.path.join(base, "*.xml"))
+    raiz = os.path.dirname(base)
+    candidatos = glob.glob(os.path.join(raiz, "*.xml")) + glob.glob(os.path.join(base, "*.xml"))
     if not candidatos:
-        print("No se encontró ningún archivo .xml en esta carpeta.")
+        print("No se encontró ningún archivo .xml en el proyecto.")
         sys.exit(1)
     return candidatos[0]
 
@@ -79,10 +80,11 @@ def mostrar_red(datos):
 def mostrar_wifi(datos):
     print(f"SSID              : {datos['ssid'] or 'sin configurar'}")
     print(f"Modo de red (codigo): {datos['network_mode'] or 'sin configurar'}")
+    print(f"Banda (codigo)    : {datos['banda'] or 'sin configurar'}")
     print(f"Canal             : {datos['canal'] or 'automático'}")
     print(f"Difusion de SSID  : {'si' if datos['ssid_broadcast'] else 'no (oculto)'}")
     print(f"Filtro de MAC     : {'habilitado' if datos['mac_filter'] else 'deshabilitado'}")
-    print("Nota: el codigo de 'Modo de red' corresponde al combo 'Network Mode' del AP en Packet Tracer.")
+    print("Nota: los codigos de 'Modo de red' y 'Banda' corresponden a los combos del AP en Packet Tracer.")
 
 
 def mostrar_seguridad(datos):

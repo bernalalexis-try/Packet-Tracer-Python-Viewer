@@ -6,9 +6,10 @@ import sys
 
 def encontrar_xml():
     base = os.path.dirname(os.path.abspath(__file__))
-    candidatos = glob.glob(os.path.join(base, "*.xml"))
+    raiz = os.path.dirname(base)
+    candidatos = glob.glob(os.path.join(raiz, "*.xml")) + glob.glob(os.path.join(base, "*.xml"))
     if not candidatos:
-        print("No se encontró ningún archivo .xml en esta carpeta.")
+        print("No se encontró ningún archivo .xml en el proyecto.")
         sys.exit(1)
     return candidatos[0]
 
@@ -27,11 +28,11 @@ def parsear_hosts(ruta_xml):
         bloque = match.group(0)
 
         tipo_match = re.search(r"<TYPE[^>]*>([^<]*)</TYPE>", bloque)
-        if not tipo_match or tipo_match.group(1).strip() not in ("Pc", "Laptop"):
+        if not tipo_match or tipo_match.group(1).strip() not in ("Smart Phone", "Tablet PC"):
             continue
 
         nombre_match = re.search(r'<NAME translate="true">([^<]*)</NAME>', bloque)
-        nombre = nombre_match.group(1).strip() if nombre_match else "PC"
+        nombre = nombre_match.group(1).strip() if nombre_match else "Dispositivo"
 
         port_match = re.search(r"<PORT>.*?</PORT>", bloque, re.DOTALL)
         port = port_match.group(0) if port_match else ""
@@ -151,14 +152,14 @@ def main():
     leases = parsear_leases_dhcp(ruta_xml)
 
     if not hosts:
-        print("No se encontraron PCs ni Laptops en el archivo XML.")
+        print("No se encontraron Smartphones ni Tablets en el archivo XML.")
         return
 
-    print(f"Hosts disponibles: {', '.join(hosts.keys())}")
+    print(f"Dispositivos disponibles: {', '.join(hosts.keys())}")
     print("Escribí 'salir' para salir.\n")
 
     while True:
-        nombre = input("PC/Laptop: ").strip()
+        nombre = input("Smartphone/Tablet: ").strip()
         if nombre.lower() == "salir":
             break
 

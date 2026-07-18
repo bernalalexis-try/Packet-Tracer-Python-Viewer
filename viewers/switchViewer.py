@@ -6,9 +6,10 @@ import sys
 
 def encontrar_xml():
     base = os.path.dirname(os.path.abspath(__file__))
-    candidatos = glob.glob(os.path.join(base, "*.xml"))
+    raiz = os.path.dirname(base)
+    candidatos = glob.glob(os.path.join(raiz, "*.xml")) + glob.glob(os.path.join(base, "*.xml"))
     if not candidatos:
-        print("No se encontró ningún archivo .xml en esta carpeta.")
+        print("No se encontró ningún archivo .xml en el proyecto.")
         sys.exit(1)
     return candidatos[0]
 
