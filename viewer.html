@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Packet Tracer Python Viewer</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel-bg: #171a23;
+    --sidebar-bg: #12141c;
+    --borde: #262a37;
+    --texto: #e4e6eb;
+    --texto-tenue: #9099ac;
+    --acento: #4f8cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--texto);
+    height: 100vh;
+    overflow: hidden;
+  }
+  #zona-carga {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+    padding: 20px;
+  }
+  #zona-carga.oculto { display: none; }
+  #dropzone {
+    border: 2px dashed var(--borde);
+    border-radius: 16px;
+    padding: 60px 80px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  #dropzone.arrastrando {
+    border-color: var(--acento);
+    background: #131826;
+  }
+  #dropzone h1 {
+    font-size: 20px;
+    margin: 0 0 8px;
+  }
+  #dropzone p {
+    color: var(--texto-tenue);
+    margin: 0;
+    font-size: 14px;
+  }
+  #input-archivo { display: none; }
+  #app {
+    display: none;
+    height: 100vh;
+  }
+  #app.visible {
+    display: flex;
+  }
+  #sidebar {
+    width: 300px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--borde);
+    overflow-y: auto;
+    padding: 16px 0;
+    flex-shrink: 0;
+  }
+  #buscador {
+    display: block;
+    width: calc(100% - 32px);
+    margin: 0 16px 16px;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    color: var(--texto);
+    font-size: 14px;
+  }
+  .categoria {
+    padding: 10px 16px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--texto-tenue);
+  }
+  .dispositivo {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    color: var(--texto);
+    font-size: 14px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .dispositivo:hover { background: #1d212c; }
+  .dispositivo.active {
+    background: #1a2233;
+    border-left-color: var(--acento);
+    color: var(--acento);
+  }
+  #contenido {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 40px;
+  }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .panel h2 { margin: 0 0 4px; font-size: 22px; }
+  .etiqueta {
+    display: inline-block;
+    background: #1a2233;
+    color: var(--acento);
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    margin-bottom: 16px;
+  }
+  #cambiar-archivo {
+    position: fixed;
+    top: 16px;
+    right: 24px;
+    background: var(--panel-bg);
+    border: 1px solid var(--borde);
+    color: var(--texto-tenue);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  #cambiar-archivo:hover { color: var(--texto); }
+  pre {
+    background: var(--panel-bg);
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+    font-family: Consolas, Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+  .detalle {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  .seccion h3 {
+    margin: 0 0 14px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--acento);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--borde);
+  }
+  .grupo-kv {
+    background: var(--panel-bg);
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .fila-kv {
+    display: flex;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+  .fila-kv:not(:last-child) {
+    border-bottom: 1px solid var(--borde);
+  }
+  .fila-kv .clave {
+    width: 220px;
+    flex-shrink: 0;
+    color: var(--texto-tenue);
+  }
+  .fila-kv .valor {
+    color: var(--texto);
+    font-weight: 500;
+    word-break: break-word;
+  }
+  .subbloque {
+    margin-bottom: 16px;
+  }
+  .subbloque:last-child {
+    margin-bottom: 0;
+  }
+  .subbloque h4 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    color: var(--texto);
+  }
+  .subbloque .grupo-kv {
+    margin-left: 4px;
+  }
+  p.nota {
+    color: var(--texto-tenue);
+    font-size: 14px;
+    margin: 0;
+  }
+  #error-carga {
+    color: #ff6b6b;
+    font-size: 14px;
+    min-height: 20px;
+  }
+</style>
+</head>
+<body>
+
+<div id="zona-carga">
+  <div id="dropzone">
+    <h1>Packet Tracer Python Viewer</h1>
+    <p>Arrastra aca tu archivo .xml (ya descifrado con Unpacket), o hace clic para elegirlo</p>
+  </div>
+  <div id="error-carga"></div>
+  <input type="file" id="input-archivo" accept=".xml">
+</div>
+
+<button id="cambiar-archivo" style="display:none">Cargar otro XML</button>
+
+<div id="app">
+  <div id="sidebar">
+    <input id="buscador" type="text" placeholder="Buscar dispositivo...">
+    <div id="lista-dispositivos"></div>
+  </div>
+  <div id="contenido"></div>
+</div>
+
+<script>
+function texto(bloque, tag) {
+  const m = bloque.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
+  return m && m[1] ? m[1] : null;
+}
+
+function bloquesDevice(xml) {
+  return xml.match(/<DEVICE>[\s\S]*?<\/DEVICE>/g) || [];
+}
+
+function tipoDevice(bloque) {
+  const m = bloque.match(/<TYPE[^>]*>([^<]*)<\/TYPE>/);
+  return m ? m[1].trim() : null;
+}
+
+function nombreDevice(bloque, porDefecto) {
+  const m = bloque.match(/<NAME translate="true">([^<]*)<\/NAME>/);
+  return m ? m[1].trim() : porDefecto;
+}
+
+function modeloDevice(bloque) {
+  const m = bloque.match(/<TYPE[^>]*model="([^"]*)"/);
+  return m ? m[1] : "Desconocido";
+}
+
+function serialDevice(bloque) {
+  const m = bloque.match(/<SERIALNUMBER>([^<]*)<\/SERIALNUMBER>/);
+  return m ? m[1] : "Desconocido";
+}
+
+function lineasRunningConfig(bloque) {
+  const rc = bloque.match(/<RUNNINGCONFIG>([\s\S]*?)<\/RUNNINGCONFIG>/);
+  if (!rc) return [];
+  const lineas = [];
+  const regex = /<LINE>(.*?)<\/LINE>/g;
+  let m;
+  while ((m = regex.exec(rc[1])) !== null) {
+    lineas.push(m[1]);
+  }
+  return lineas;
+}
+
+function ipToInt(ip) {
+  const partes = ip.split(".").map(Number);
+  return ((partes[0] << 24) | (partes[1] << 16) | (partes[2] << 8) | partes[3]) >>> 0;
+}
+
+function intToIp(valor) {
+  return [
+    (valor >>> 24) & 0xff,
+    (valor >>> 16) & 0xff,
+    (valor >>> 8) & 0xff,
+    valor & 0xff,
+  ].join(".");
+}
+
+function maskToPrefixlen(mask) {
+  return ipToInt(mask).toString(2).split("1").length - 1;
+}
+
+function networkAddress(ip, prefixlen) {
+  if (prefixlen === 0) return 0;
+  const fullMask = (0xffffffff << (32 - prefixlen)) >>> 0;
+  return (ipToInt(ip) & fullMask) >>> 0;
+}
+
+function classfulInfo(networkInt) {
+  const primerOcteto = (networkInt >>> 24) & 0xff;
+  let classfulLen;
+  if (primerOcteto >= 1 && primerOcteto <= 126) classfulLen = 8;
+  else if (primerOcteto >= 128 && primerOcteto <= 191) classfulLen = 16;
+  else if (primerOcteto >= 192 && primerOcteto <= 223) classfulLen = 24;
+  else classfulLen = 8;
+  const major = networkAddress(intToIp(networkInt), classfulLen);
+  return { classfulLen, major };
+}
+
+function parsearRouters(xml) {
+  const routers = {};
+  for (const bloque of bloquesDevice(xml)) {
+    if (tipoDevice(bloque) !== "Router") continue;
+    const nombre = nombreDevice(bloque, "Router");
+    routers[nombre] = {
+      modelo: modeloDevice(bloque),
+      serial: serialDevice(bloque),
+      lineas: lineasRunningConfig(bloque),
+    };
+  }
+  return routers;
+}
+
+function parsearInterfacesRouter(lineas) {
+  const interfaces = [];
+  let actual = null;
+
+  for (const linea of lineas) {
+    if (!linea.startsWith(" ") && linea.toLowerCase().startsWith("interface ")) {
+      if (actual) interfaces.push(actual);
+      actual = {
+        nombre: linea.split(" ").slice(1).join(" ").trim(),
+        ip: null,
+        mask: null,
+        up: true,
+        descripcion: null,
+        duplex: null,
+        velocidad: null,
+        mtu: null,
+        vlan: null,
+      };
+      continue;
+    }
+    if (actual === null) continue;
+
+    const contenido = linea.trim();
+    if (contenido === "!" || (!linea.startsWith(" ") && contenido !== "")) {
+      interfaces.push(actual);
+      actual = null;
+      continue;
+    }
+
+    let m;
+    if ((m = contenido.match(/^ip address (\d{1,3}(?:\.\d{1,3}){3}) (\d{1,3}(?:\.\d{1,3}){3})/))) {
+      actual.ip = m[1];
+      actual.mask = m[2];
+    } else if (contenido === "shutdown") {
+      actual.up = false;
+    } else if ((m = contenido.match(/^description (.+)/))) {
+      actual.descripcion = m[1];
+    } else if ((m = contenido.match(/^duplex (\S+)/))) {
+      actual.duplex = m[1];
+    } else if ((m = contenido.match(/^speed (\S+)/))) {
+      actual.velocidad = m[1];
+    } else if ((m = contenido.match(/^mtu (\d+)/))) {
+      actual.mtu = m[1];
+    } else if ((m = contenido.match(/^encapsulation dot1Q (\d+)/))) {
+      actual.vlan = m[1];
+    }
+  }
+  if (actual) interfaces.push(actual);
+  return interfaces;
+}
+
+function parsearRutasEstaticas(lineas) {
+  const rutas = [];
+  for (const linea of lineas) {
+    const contenido = linea.trim();
+    const m = contenido.match(
+      /^ip route (\d{1,3}(?:\.\d{1,3}){3}) (\d{1,3}(?:\.\d{1,3}){3}) (\S+)/
+    );
+    if (m) {
+      rutas.push({ red: m[1], mask: m[2], nextHop: m[3] });
+    }
+  }
+  return rutas;
+}
+
+function construirEntradas(interfaces, rutasEstaticas) {
+  const entradas = new Map();
+
+  for (const intf of interfaces) {
+    if (!intf.ip || !intf.up) continue;
+    const prefixlen = maskToPrefixlen(intf.mask);
+    const red = networkAddress(intf.ip, prefixlen);
+
+    entradas.set(`${red}/${prefixlen}`, { red, prefixlen, codigo: "C", via: [], interfaz: intf.nombre });
+    entradas.set(`${ipToInt(intf.ip)}/32`, {
+      red: ipToInt(intf.ip),
+      prefixlen: 32,
+      codigo: "L",
+      via: [],
+      interfaz: intf.nombre,
+    });
+  }
+
+  for (const ruta of rutasEstaticas) {
+    const prefixlen = maskToPrefixlen(ruta.mask);
+    const red = networkAddress(ruta.red, prefixlen);
+    const clave = `${red}/${prefixlen}`;
+
+    const existente = entradas.get(clave);
+    if (existente && (existente.codigo === "C" || existente.codigo === "L")) continue;
+
+    if (!entradas.has(clave)) {
+      entradas.set(clave, { red, prefixlen, codigo: "S", via: [], interfaz: null });
+    }
+    entradas.get(clave).via.push(ruta.nextHop);
+  }
+
+  return entradas;
+}
+
+function agruparPorMayor(entradas) {
+  const grupos = new Map();
+  for (const datos of entradas.values()) {
+    const { classfulLen, major } = classfulInfo(datos.red);
+    const clave = `${major}/${classfulLen}`;
+    if (!grupos.has(clave)) grupos.set(clave, { major, classfulLen, rutas: [] });
+    grupos.get(clave).rutas.push(datos);
+  }
+  return grupos;
+}
+
+function formatearEntradaRuta(datos, indentado) {
+  const espacios = indentado ? 7 : 4;
+  const prefijo = `${datos.codigo}${" ".repeat(espacios)}${intToIp(datos.red)}/${datos.prefixlen} `;
+
+  if (datos.codigo === "C" || datos.codigo === "L") {
+    return `${prefijo}is directly connected, ${datos.interfaz}`;
+  }
+
+  return datos.via
+    .map((via, i) => (i === 0 ? `${prefijo}[1/0] via ${via}` : `${" ".repeat(prefijo.length)}[1/0] via ${via}`))
+    .join("\n");
+}
+
+function formatearTablaRutas(interfaces, rutasEstaticas) {
+  const entradas = construirEntradas(interfaces, rutasEstaticas);
+  const grupos = agruparPorMayor(entradas);
+  const salida = [];
+
+  const claveDefault = "0/0";
+  if (entradas.has(claveDefault)) {
+    const datos = entradas.get(claveDefault);
+    const prefijo = "S*    0.0.0.0/0 ";
+    [...datos.via].sort().forEach((via, i) => {
+      salida.push(i === 0 ? `${prefijo}[1/0] via ${via}` : `${" ".repeat(prefijo.length)}[1/0] via ${via}`);
+    });
+  }
+
+  const clavesOrdenadas = [...grupos.keys()].sort((a, b) => grupos.get(a).major - grupos.get(b).major);
+
+  for (const clave of clavesOrdenadas) {
+    const { major, classfulLen, rutas } = grupos.get(clave);
+    const rutasFiltradas = rutas.filter((r) => !(r.red === 0 && r.prefixlen === 0));
+    if (rutasFiltradas.length === 0) continue;
+
+    rutasFiltradas.sort((a, b) => a.red - b.red);
+    const masks = new Set(rutasFiltradas.map((r) => r.prefixlen));
+    const esStandalone = rutasFiltradas.length === 1 && rutasFiltradas[0].prefixlen === classfulLen;
+
+    if (esStandalone) {
+      salida.push(formatearEntradaRuta(rutasFiltradas[0], false));
+    } else {
+      const textoMasks =
+        masks.size > 1
+          ? `is variably subnetted, ${rutasFiltradas.length} subnets, ${masks.size} masks`
+          : `is subnetted, ${rutasFiltradas.length} subnets`;
+      salida.push(`     ${intToIp(major)}/${classfulLen} ${textoMasks}`);
+      for (const r of rutasFiltradas) {
+        salida.push(formatearEntradaRuta(r, true));
+      }
+    }
+  }
+
+  return salida.length ? salida.join("\n") : "Sin rutas.";
+}
+
+
+function parsearSwitches(xml) {
+  const switches = {};
+  for (const bloque of bloquesDevice(xml)) {
+    if (tipoDevice(bloque) !== "Switch") continue;
+    const nombre = nombreDevice(bloque, "Switch");
+
+    const vlansCrudas = [...bloque.matchAll(/<VLAN name="([^"]*)" number="(\d+)"/g)];
+    const vlansMap = new Map();
+    for (const [, nombreVlan, numero] of vlansCrudas) vlansMap.set(Number(numero), nombreVlan);
+    const vlans = [...vlansMap.entries()].sort((a, b) => a[0] - b[0]);
+
+    switches[nombre] = {
+      modelo: modeloDevice(bloque),
+      serial: serialDevice(bloque),
+      lineas: lineasRunningConfig(bloque),
+      vlans,
+    };
+  }
+  return switches;
+}
+
+function parsearVersionIOS(lineas) {
+  for (const linea of lineas) {
+    const m = linea.trim().match(/^version (\S+)/);
+    if (m) return m[1];
+  }
+  return "Desconocida";
+}
+
+function parsearPuertosSwitch(lineas) {
+  const puertos = [];
+  let actual = null;
+
+  for (const linea of lineas) {
+    if (!linea.startsWith(" ") && linea.toLowerCase().startsWith("interface ")) {
+      if (actual) puertos.push(actual);
+      actual = {
+        nombre: linea.split(" ").slice(1).join(" ").trim(),
+        modo: null,
+        vlanAccess: null,
+        vlanTrunk: null,
+        descripcion: null,
+        duplex: null,
+        velocidad: null,
+        up: true,
+      };
+      continue;
+    }
+    if (actual === null) continue;
+
+    const contenido = linea.trim();
+    if (contenido === "!" || (!linea.startsWith(" ") && contenido !== "")) {
+      puertos.push(actual);
+      actual = null;
+      continue;
+    }
+
+    let m;
+    if ((m = contenido.match(/^switchport mode (\S+)/))) actual.modo = m[1];
+    else if ((m = contenido.match(/^switchport access vlan (\d+)/))) actual.vlanAccess = m[1];
+    else if ((m = contenido.match(/^switchport trunk allowed vlan (\S+)/))) actual.vlanTrunk = m[1];
+    else if ((m = contenido.match(/^description (.+)/))) actual.descripcion = m[1];
+    else if ((m = contenido.match(/^duplex (\S+)/))) actual.duplex = m[1];
+    else if ((m = contenido.match(/^speed (\S+)/))) actual.velocidad = m[1];
+    else if (contenido === "shutdown") actual.up = false;
+  }
+  if (actual) puertos.push(actual);
+  return puertos;
+}
+
+function parsearSeguridadSwitch(lineas) {
+  let enableSecret = null;
+  let enablePassword = null;
+  let conPassword = null;
+  let vtyPassword = null;
+  let vtyLogin = false;
+  let seccion = null;
+  let interfazActual = null;
+  const portSecurity = [];
+
+  for (const linea of lineas) {
+    const contenido = linea.trim();
+    if (!linea.startsWith(" ") && linea.toLowerCase().startsWith("interface ")) {
+      interfazActual = linea.split(" ").slice(1).join(" ").trim();
+    }
+
+    let m;
+    if ((m = contenido.match(/^enable secret (?:5 )?(\S+)/))) enableSecret = m[1];
+    else if ((m = contenido.match(/^enable password (\S+)/))) enablePassword = m[1];
+
+    if (!linea.startsWith(" ") && contenido.startsWith("line con")) {
+      seccion = "con";
+      continue;
+    }
+    if (!linea.startsWith(" ") && contenido.startsWith("line vty")) {
+      seccion = "vty";
+      continue;
+    }
+    if (!linea.startsWith(" ") && contenido !== "") seccion = null;
+
+    if (seccion === "con") {
+      const mp = contenido.match(/^password (\S+)/);
+      if (mp) conPassword = mp[1];
+    }
+    if (seccion === "vty") {
+      const mp = contenido.match(/^password (\S+)/);
+      if (mp) vtyPassword = mp[1];
+      if (contenido === "login") vtyLogin = true;
+    }
+
+    if (contenido.startsWith("switchport port-security")) portSecurity.push([interfazActual, contenido]);
+  }
+
+  return { enableSecret, enablePassword, conPassword, vtyPassword, vtyLogin, portSecurity };
+}
+
+function parsearSpanningTree(lineas) {
+  let modo = null;
+  const prioridades = [];
+  for (const linea of lineas) {
+    const contenido = linea.trim();
+    const mModo = contenido.match(/^spanning-tree mode (\S+)/);
+    const mPrio = contenido.match(/^spanning-tree vlan (\S+) priority (\d+)/);
+    if (mModo) modo = mModo[1];
+    else if (mPrio) prioridades.push([mPrio[1], mPrio[2]]);
+  }
+  return { modo, prioridades };
+}
+
+function parsearVersionIOS(lineas) {
+  for (const linea of lineas) {
+    const m = linea.trim().match(/^version (\S+)/);
+    if (m) return m[1];
+  }
+  return "Desconocida";
+}
+
+function parsearSeguridad(lineas) {
+  let enableSecret = null;
+  let enablePassword = null;
+  let conPassword = null;
+  let vtyPassword = null;
+  let vtyLogin = false;
+  let seccion = null;
+  let interfazActual = null;
+  const portSecurity = [];
+
+  for (const linea of lineas) {
+    const contenido = linea.trim();
+
+    if (!linea.startsWith(" ") && linea.toLowerCase().startsWith("interface ")) {
+      interfazActual = linea.split(" ").slice(1).join(" ").trim();
+    }
+
+    let m;
+    if ((m = contenido.match(/^enable secret (?:5 )?(\S+)/))) {
+      enableSecret = m[1];
+    } else if ((m = contenido.match(/^enable password (\S+)/))) {
+      enablePassword = m[1];
+    }
+
+    if (!linea.startsWith(" ") && contenido.startsWith("line con")) {
+      seccion = "con";
+      continue;
+    }
+    if (!linea.startsWith(" ") && contenido.startsWith("line vty")) {
+      seccion = "vty";
+      continue;
+    }
+    if (!linea.startsWith(" ") && contenido !== "") {
+      seccion = null;
+    }
+
+    if (seccion === "con") {
+      const mp = contenido.match(/^password (\S+)/);
+      if (mp) conPassword = mp[1];
+    }
+    if (seccion === "vty") {
+      const mp = contenido.match(/^password (\S+)/);
+      if (mp) vtyPassword = mp[1];
+      if (contenido === "login") vtyLogin = true;
+    }
+
+    if (contenido.startsWith("switchport port-security")) {
+      portSecurity.push([interfazActual, contenido]);
+    }
+  }
+
+  return { enableSecret, enablePassword, conPassword, vtyPassword, vtyLogin, portSecurity };
+}
+
+function parsearProtocolosDinamicos(lineas) {
+  const protocolos = [];
+  let actual = null;
+
+  for (const linea of lineas) {
+    const contenido = linea.trim();
+    const mOspf = contenido.match(/^router ospf (\S+)/);
+    const mEigrp = contenido.match(/^router eigrp (\S+)/);
+
+    if (!linea.startsWith(" ") && mOspf) {
+      if (actual) protocolos.push(actual);
+      actual = { tipo: "OSPF", id: mOspf[1], routerId: null, networks: [] };
+      continue;
+    }
+    if (!linea.startsWith(" ") && mEigrp) {
+      if (actual) protocolos.push(actual);
+      actual = { tipo: "EIGRP", id: mEigrp[1], routerId: null, networks: [] };
+      continue;
+    }
+    if (actual === null) continue;
+
+    if (contenido === "!" || (!linea.startsWith(" ") && contenido !== "")) {
+      protocolos.push(actual);
+      actual = null;
+      continue;
+    }
+
+    const mNetOspf = contenido.match(/^network (\S+) (\S+) area (\S+)/);
+    const mNetEigrp = contenido.match(/^network (\S+)(?: (\S+))?$/);
+    const mRid = contenido.match(/^router-id (\S+)/);
+
+    if (actual.tipo === "OSPF" && mNetOspf) {
+      actual.networks.push(`${mNetOspf[1]} ${mNetOspf[2]} area ${mNetOspf[3]}`);
+    } else if (actual.tipo === "EIGRP" && mNetEigrp) {
+      const wildcard = mNetEigrp[2] ? ` ${mNetEigrp[2]}` : "";
+      actual.networks.push(`${mNetEigrp[1]}${wildcard}`);
+    } else if (mRid) {
+      actual.routerId = mRid[1];
+    }
+  }
+  if (actual) protocolos.push(actual);
+  return protocolos;
+}
+
+function parsearRedundancia(lineas) {
+  const grupos = [];
+  let interfazActual = null;
+
+  function obtenerGrupo(protocolo, numero) {
+    let g = grupos.find(
+      (g) => g.interfaz === interfazActual && g.protocolo === protocolo && g.grupo === numero
+    );
+    if (!g) {
+      g = { interfaz: interfazActual, protocolo, grupo: numero, ipVirtual: null, prioridad: null, preempt: false };
+      grupos.push(g);
+    }
+    return g;
+  }
+
+  for (const linea of lineas) {
+    if (!linea.startsWith(" ") && linea.toLowerCase().startsWith("interface ")) {
+      interfazActual = linea.split(" ").slice(1).join(" ").trim();
+      continue;
+    }
+    const contenido = linea.trim();
+    let m;
+    if ((m = contenido.match(/^standby (\d+) ip (\S+)/))) {
+      obtenerGrupo("HSRP", m[1]).ipVirtual = m[2];
+    } else if ((m = contenido.match(/^standby (\d+) priority (\d+)/))) {
+      obtenerGrupo("HSRP", m[1]).prioridad = m[2];
+    } else if ((m = contenido.match(/^standby (\d+) preempt/))) {
+      obtenerGrupo("HSRP", m[1]).preempt = true;
+    } else if ((m = contenido.match(/^vrrp (\d+) ip (\S+)/))) {
+      obtenerGrupo("VRRP", m[1]).ipVirtual = m[2];
+    } else if ((m = contenido.match(/^vrrp (\d+) priority (\d+)/))) {
+      obtenerGrupo("VRRP", m[1]).prioridad = m[2];
+    }
+  }
+  return grupos;
+}
+
+function mostrarTodoRouter(nombre, datos) {
+  const lineas = datos.lineas;
+  const interfaces = parsearInterfacesRouter(lineas);
+  const rutasEstaticas = parsearRutasEstaticas(lineas);
+  const version = parsearVersionIOS(lineas);
+  const seguridad = parsearSeguridad(lineas);
+  const protocolos = parsearProtocolosDinamicos(lineas);
+  const redundancia = parsearRedundancia(lineas);
+
+  const salida = [];
+  salida.push("=== IDENTIDAD Y HARDWARE ===");
+  salida.push(`Hostname     : ${nombre}`);
+  salida.push(`Modelo       : ${datos.modelo}`);
+  salida.push(`Numero serie : ${datos.serial}`);
+  salida.push(`Version IOS  : ${version}`);
+
+  salida.push("\n=== INTERFACES ===");
+  if (!interfaces.length) {
+    salida.push("Sin interfaces configuradas.");
+  } else {
+    for (const intf of interfaces) {
+      const estado = intf.up ? "up" : "administratively down";
+      salida.push(`\n${intf.nombre}  [${estado}]`);
+      salida.push(`  IP           : ${(intf.ip || "sin IP") + " " + (intf.mask || "")}`.trimEnd());
+      if (intf.descripcion) salida.push(`  Descripcion  : ${intf.descripcion}`);
+      if (intf.vlan) salida.push(`  VLAN (dot1Q) : ${intf.vlan}`);
+      if (intf.duplex) salida.push(`  Duplex       : ${intf.duplex}`);
+      if (intf.velocidad) salida.push(`  Velocidad    : ${intf.velocidad}`);
+      if (intf.mtu) salida.push(`  MTU          : ${intf.mtu}`);
+    }
+  }
+
+  salida.push("\n=== RUTEO ===");
+  salida.push(formatearTablaRutas(interfaces, rutasEstaticas));
+  if (rutasEstaticas.length) {
+    salida.push("\nRutas estaticas configuradas:");
+    for (const r of rutasEstaticas) {
+      salida.push(`  ip route ${r.red} ${r.mask} ${r.nextHop}`);
+    }
+  }
+
+  salida.push("\n=== SEGURIDAD ===");
+  salida.push(`Enable secret   : ${seguridad.enableSecret || "no configurado"}`);
+  salida.push(`Enable password : ${seguridad.enablePassword || "no configurado"}`);
+  salida.push(`Password consola: ${seguridad.conPassword || "no configurada"}`);
+  salida.push(`Password VTY    : ${seguridad.vtyPassword || "no configurada"}`);
+  salida.push(`Login en VTY    : ${seguridad.vtyLogin ? "si" : "no"}`);
+  if (seguridad.portSecurity.length) {
+    salida.push("\nACLs configuradas:");
+    for (const [iface, l] of seguridad.portSecurity) salida.push(`  ${iface}: ${l}`);
+  } else {
+    salida.push("\nSin ACLs configuradas.");
+  }
+
+  salida.push("\n=== PROTOCOLOS DE ENRUTAMIENTO DINAMICO ===");
+  if (!protocolos.length) {
+    salida.push("No se detectaron protocolos de enrutamiento dinamico (OSPF/EIGRP).");
+  } else {
+    for (const p of protocolos) {
+      salida.push(`\n${p.tipo} (proceso/AS ${p.id})`);
+      salida.push(`  Router ID  : ${p.routerId || "no configurado"}`);
+      if (p.networks.length) {
+        salida.push("  Redes anunciadas:");
+        for (const red of p.networks) salida.push(`    network ${red}`);
+      } else {
+        salida.push("  Sin redes anunciadas.");
+      }
+    }
+  }
+
+  salida.push("\n=== HSRP / VRRP ===");
+  if (!redundancia.length) {
+    salida.push("No se detecto HSRP ni VRRP configurado.");
+  } else {
+    for (const g of redundancia) {
+      salida.push(`\n${g.interfaz}  [${g.protocolo} grupo ${g.grupo}]`);
+      salida.push(`  IP virtual : ${g.ipVirtual || "no configurada"}`);
+      salida.push(`  Prioridad  : ${g.prioridad || "por defecto (100)"}`);
+      if (g.protocolo === "HSRP") salida.push(`  Preempt    : ${g.preempt ? "si" : "no"}`);
+    }
+  }
+
+  salida.push("\n=== CONFIG COMPLETO (RAW) ===");
+  salida.push(lineas.join("\n"));
+
+  return salida.join("\n");
+}
+
+function mostrarTodoSwitch(nombre, datos) {
+  const lineas = datos.lineas;
+  const version = parsearVersionIOS(lineas);
+  const puertos = parsearPuertosSwitch(lineas);
+  const seguridad = parsearSeguridadSwitch(lineas);
+  const st = parsearSpanningTree(lineas);
+
+  const salida = [];
+  salida.push("=== IDENTIDAD Y HARDWARE ===");
+  salida.push(`Hostname     : ${nombre}`);
+  salida.push(`Modelo       : ${datos.modelo}`);
+  salida.push(`Numero serie : ${datos.serial}`);
+  salida.push(`Version IOS  : ${version}`);
+
+  salida.push("\n=== VLANS ===");
+  if (!datos.vlans.length) salida.push("Sin VLANs configuradas.");
+  else for (const [numero, nombreVlan] of datos.vlans) salida.push(`  VLAN ${String(numero).padEnd(5)} ${nombreVlan}`);
+
+  salida.push("\n=== PUERTOS ===");
+  if (!puertos.length) salida.push("Sin puertos configurados.");
+  else {
+    for (const p of puertos) {
+      const estado = p.up ? "up" : "administratively down";
+      salida.push(`\n${p.nombre}  [${estado}]`);
+      salida.push(`  Modo         : ${p.modo || "no definido (access por defecto)"}`);
+      if (p.vlanAccess) salida.push(`  VLAN access  : ${p.vlanAccess}`);
+      if (p.vlanTrunk) salida.push(`  VLANs trunk  : ${p.vlanTrunk}`);
+      if (p.descripcion) salida.push(`  Descripcion  : ${p.descripcion}`);
+      if (p.duplex) salida.push(`  Duplex       : ${p.duplex}`);
+      if (p.velocidad) salida.push(`  Velocidad    : ${p.velocidad}`);
+    }
+  }
+
+  salida.push("\n=== TRUNKING ===");
+  const trunks = puertos.filter((p) => p.modo === "trunk" || p.vlanTrunk);
+  if (!trunks.length) salida.push("Sin puertos trunk configurados.");
+  else for (const p of trunks) {
+    salida.push(`\n${p.nombre}`);
+    salida.push(`  VLANs permitidas: ${p.vlanTrunk || "todas (default)"}`);
+  }
+
+  salida.push("\n=== SEGURIDAD ===");
+  salida.push(`Enable secret   : ${seguridad.enableSecret || "no configurado"}`);
+  salida.push(`Enable password : ${seguridad.enablePassword || "no configurado"}`);
+  salida.push(`Password consola: ${seguridad.conPassword || "no configurada"}`);
+  salida.push(`Password VTY    : ${seguridad.vtyPassword || "no configurada"}`);
+  salida.push(`Login en VTY    : ${seguridad.vtyLogin ? "si" : "no"}`);
+  if (seguridad.portSecurity.length) {
+    salida.push("\nPort-security configurado:");
+    for (const [iface, l] of seguridad.portSecurity) salida.push(`  ${iface}: ${l}`);
+  } else salida.push("\nSin port-security configurado.");
+
+  salida.push("\n=== SPANNING-TREE ===");
+  salida.push(`Modo: ${st.modo || "no configurado"}`);
+  if (st.prioridades.length) {
+    salida.push("\nPrioridades por VLAN:");
+    for (const [vlan, prioridad] of st.prioridades) salida.push(`  VLAN ${vlan}: prioridad ${prioridad}`);
+  } else salida.push("\nSin prioridades personalizadas por VLAN.");
+
+  salida.push("\n=== CONFIG COMPLETO (RAW) ===");
+  salida.push(lineas.join("\n"));
+
+  return salida.join("\n");
+}
+
+
+function parsearHosts(xml, tipos) {
+  const hosts = {};
+  for (const bloque of bloquesDevice(xml)) {
+    const tipo = tipoDevice(bloque);
+    if (!tipos.includes(tipo)) continue;
+    const nombre = nombreDevice(bloque, "Dispositivo");
+    const port = (bloque.match(/<PORT>[\s\S]*?<\/PORT>/) || [""])[0];
+
+    hosts[nombre] = {
+      tipo,
+      mac: texto(port, "MACADDRESS"),
+      dhcp: texto(port, "PORT_DHCP_ENABLE") === "true",
+      ip: texto(port, "IP"),
+      mask: texto(port, "SUBNET"),
+      gateway: texto(port, "PORT_GATEWAY"),
+      dns: texto(port, "PORT_DNS"),
+    };
+  }
+  return hosts;
+}
+
+function parsearLeasesDhcp(xml) {
+  const leases = {};
+  for (const bloque of bloquesDevice(xml)) {
+    if (tipoDevice(bloque) !== "Server") continue;
+    const nombreServidor = nombreDevice(bloque, "Server");
+
+    const dhcpMatch = bloque.match(/<DHCP_SERVER>[\s\S]*?<\/DHCP_SERVER>/);
+    if (!dhcpMatch) continue;
+    const dhcpBloque = dhcpMatch[0];
+    if (texto(dhcpBloque, "ENABLED") !== "1") continue;
+
+    for (const poolMatch of dhcpBloque.matchAll(/<POOL>[\s\S]*?<\/POOL>/g)) {
+      const pool = poolMatch[0];
+      const nombrePool = texto(pool, "NAME");
+
+      for (const leaseMatch of pool.matchAll(/<DHCP_POOL_LEASE>[\s\S]*?<\/DHCP_POOL_LEASE>/g)) {
+        const lease = leaseMatch[0];
+        const mac = texto(lease, "MAC_ADDRESS");
+        const ip = texto(lease, "IP_ADDRESS");
+        if (mac && ip) leases[mac] = { ip, pool: nombrePool, servidor: nombreServidor };
+      }
+    }
+  }
+  return leases;
+}
+
+function mostrarTodoHost(nombre, datos, leases) {
+  const salida = [];
+  salida.push("=== IDENTIDAD ===");
+  salida.push(`Nombre       : ${nombre}`);
+  salida.push(`Tipo         : ${datos.tipo}`);
+  salida.push(`MAC          : ${datos.mac || "desconocida"}`);
+
+  salida.push("\n=== CONFIGURACION DE RED ===");
+  if (datos.dhcp) {
+    salida.push("Configuracion: DHCP (automatica)");
+    const lease = leases[datos.mac];
+    if (lease) {
+      salida.push(`IP asignada  : ${lease.ip}`);
+      salida.push(`Pool DHCP    : ${lease.pool}`);
+      salida.push(`Servidor DHCP: ${lease.servidor}`);
+    } else {
+      salida.push("IP asignada  : sin lease registrado (no obtuvo IP aun)");
+    }
+  } else {
+    salida.push("Configuracion: Estatica");
+    salida.push(`IP           : ${datos.ip || "sin configurar"}`);
+    salida.push(`Mascara      : ${datos.mask || "sin configurar"}`);
+    salida.push(`Gateway      : ${datos.gateway || "sin configurar"}`);
+    salida.push(`DNS          : ${datos.dns || "sin configurar"}`);
+  }
+
+  return salida.join("\n");
+}
+
+function parsearServers(xml) {
+  const servers = {};
+  for (const bloque of bloquesDevice(xml)) {
+    if (tipoDevice(bloque) !== "Server") continue;
+    const nombre = nombreDevice(bloque, "Server");
+    const port = (bloque.match(/<PORT>[\s\S]*?<\/PORT>/) || [""])[0];
+
+    servers[nombre] = {
+      modelo: modeloDevice(bloque),
+      serial: serialDevice(bloque),
+      mac: texto(port, "MACADDRESS"),
+      ip: texto(port, "IP"),
+      mask: texto(port, "SUBNET"),
+      gateway: texto(port, "PORT_GATEWAY"),
+      dns: texto(port, "PORT_DNS"),
+      bloque,
+    };
+  }
+  return servers;
+}
+
+function parsearDhcpServer(bloque) {
+  const m = bloque.match(/<DHCP_SERVER>[\s\S]*?<\/DHCP_SERVER>/);
+  if (!m) return { habilitado: false, pools: [] };
+  const dhcpBloque = m[0];
+  const habilitado = texto(dhcpBloque, "ENABLED") === "1";
+
+  const pools = [];
+  for (const poolMatch of dhcpBloque.matchAll(/<POOL>[\s\S]*?<\/POOL>/g)) {
+    const pool = poolMatch[0];
+    const leasesActivos = (pool.match(/<DHCP_POOL_LEASE>/g) || []).length;
+    pools.push({
+      nombre: texto(pool, "NAME"),
+      red: texto(pool, "NETWORK"),
+      mask: texto(pool, "MASK"),
+      gateway: texto(pool, "DEFAULT_ROUTER"),
+      dns: texto(pool, "DNS_SERVER"),
+      rango: `${texto(pool, "START_IP")} - ${texto(pool, "END_IP")}`,
+      maxUsuarios: texto(pool, "MAX_USERS"),
+      leasesActivos,
+    });
+  }
+  return { habilitado, pools };
+}
+
+function parsearDnsServer(bloque) {
+  const m = bloque.match(/<DNS_SERVER>[\s\S]*?<\/DNS_SERVER>/);
+  if (!m) return { habilitado: false, registros: [] };
+  const dnsBloque = m[0];
+  const habilitado = texto(dnsBloque, "ENABLED") === "1";
+  const registros = [];
+  for (const rrMatch of dnsBloque.matchAll(/<RESOURCE-RECORD>[\s\S]*?<\/RESOURCE-RECORD>/g)) {
+    const rr = rrMatch[0];
+    registros.push({
+      tipo: texto(rr, "TYPE"),
+      nombre: texto(rr, "NAME"),
+      ttl: texto(rr, "TTL"),
+      ip: texto(rr, "IPADDRESS"),
+    });
+  }
+  return { habilitado, registros };
+}
+
+function parsearHttpServer(bloque) {
+  const m = bloque.match(/<HTTP_SERVER>[\s\S]*?<\/HTTP_SERVER>/);
+  if (!m) return { habilitado: false, usuario: null, password: null };
+  const b = m[0];
+  return { habilitado: texto(b, "ENABLED") === "1", usuario: texto(b, "USERNAME"), password: texto(b, "PASSWORD") };
+}
+
+function parsearFtpServer(bloque) {
+  const m = bloque.match(/<FTP_SERVER>[\s\S]*?<\/FTP_SERVER>/);
+  if (!m) return { habilitado: false, cuentas: [] };
+  const b = m[0];
+  const habilitado = texto(b, "ENABLED") === "1";
+  const cuentas = [];
+  for (const cMatch of b.matchAll(/<ACCOUNT>[\s\S]*?<\/ACCOUNT>/g)) {
+    const c = cMatch[0];
+    cuentas.push({ usuario: texto(c, "USERNAME"), password: texto(c, "PASSWORD"), permisos: texto(c, "PERMISSIONS") });
+  }
+  return { habilitado, cuentas };
+}
+
+function parsearEmailServer(bloque) {
+  const m = bloque.match(/<EMAIL_SERVER>[\s\S]*?<\/EMAIL_SERVER>/);
+  if (!m) return { smtp: false, pop3: false, dominio: null, usuarios: null };
+  const b = m[0];
+  return {
+    smtp: texto(b, "SMTP_ENABLED") === "1",
+    pop3: texto(b, "POP3_ENABLED") === "1",
+    dominio: texto(b, "SMTP_DOMAIN"),
+    usuarios: texto(b, "NO_OF_USERS"),
+  };
+}
+
+function mostrarTodoServer(nombre, datos) {
+  const dhcp = parsearDhcpServer(datos.bloque);
+  const dns = parsearDnsServer(datos.bloque);
+  const http = parsearHttpServer(datos.bloque);
+  const ftp = parsearFtpServer(datos.bloque);
+  const email = parsearEmailServer(datos.bloque);
+
+  const salida = [];
+  salida.push("=== IDENTIDAD Y HARDWARE ===");
+  salida.push(`Hostname     : ${nombre}`);
+  salida.push(`Modelo       : ${datos.modelo}`);
+  salida.push(`Numero serie : ${datos.serial}`);
+
+  salida.push("\n=== CONFIGURACION DE RED ===");
+  salida.push(`IP      : ${datos.ip || "sin configurar"}`);
+  salida.push(`Mascara : ${datos.mask || "sin configurar"}`);
+  salida.push(`Gateway : ${datos.gateway || "sin configurar"}`);
+  salida.push(`DNS     : ${datos.dns || "sin configurar"}`);
+  salida.push(`MAC     : ${datos.mac || "desconocida"}`);
+
+  salida.push("\n=== SERVICIOS HABILITADOS ===");
+  const estado = (v) => (v ? "habilitado" : "deshabilitado");
+  salida.push(`DHCP : ${estado(dhcp.habilitado)}`);
+  salida.push(`DNS  : ${estado(dns.habilitado)}`);
+  salida.push(`HTTP : ${estado(http.habilitado)}`);
+  salida.push(`FTP  : ${estado(ftp.habilitado)}`);
+  salida.push(`SMTP : ${estado(email.smtp)}`);
+  salida.push(`POP3 : ${estado(email.pop3)}`);
+
+  salida.push("\n=== DHCP ===");
+  if (!dhcp.habilitado) salida.push("Servicio DHCP deshabilitado.");
+  else if (!dhcp.pools.length) salida.push("DHCP habilitado, sin pools configurados.");
+  else for (const p of dhcp.pools) {
+    salida.push(`\nPool: ${p.nombre}`);
+    salida.push(`  Red          : ${p.red} ${p.mask}`);
+    salida.push(`  Gateway      : ${p.gateway}`);
+    salida.push(`  DNS          : ${p.dns}`);
+    salida.push(`  Rango        : ${p.rango}`);
+    salida.push(`  Max usuarios : ${p.maxUsuarios}`);
+    salida.push(`  Leases activos: ${p.leasesActivos}`);
+  }
+
+  salida.push("\n=== DNS ===");
+  if (!dns.habilitado) salida.push("Servicio DNS deshabilitado.");
+  else if (!dns.registros.length) salida.push("DNS habilitado, sin registros configurados.");
+  else for (const r of dns.registros) salida.push(`  ${r.tipo.padEnd(8)} ${r.nombre.padEnd(35)} -> ${r.ip}  (TTL ${r.ttl})`);
+
+  salida.push("\n=== HTTP ===");
+  if (!http.habilitado) salida.push("Servicio HTTP deshabilitado.");
+  else {
+    salida.push("Servicio HTTP habilitado.");
+    salida.push(`Usuario  : ${http.usuario || "sin autenticacion"}`);
+    salida.push(`Password : ${http.password || "sin autenticacion"}`);
+  }
+
+  salida.push("\n=== FTP ===");
+  if (!ftp.habilitado) salida.push("Servicio FTP deshabilitado.");
+  else if (!ftp.cuentas.length) salida.push("FTP habilitado, sin cuentas configuradas.");
+  else for (const c of ftp.cuentas) salida.push(`  Usuario: ${c.usuario.padEnd(15)} Password: ${c.password.padEnd(15)} Permisos: ${c.permisos}`);
+
+  salida.push("\n=== EMAIL ===");
+  salida.push(`SMTP    : ${email.smtp ? "habilitado" : "deshabilitado"}`);
+  salida.push(`POP3    : ${email.pop3 ? "habilitado" : "deshabilitado"}`);
+  salida.push(`Dominio : ${email.dominio || "sin configurar"}`);
+  salida.push(`Usuarios: ${email.usuarios || "0"}`);
+
+  return salida.join("\n");
+}
+
+function parsearAccessPoints(xml) {
+  const aps = {};
+  for (const bloque of bloquesDevice(xml)) {
+    if (tipoDevice(bloque) !== "AccessPoint") continue;
+    const nombre = nombreDevice(bloque, "AccessPoint");
+    const macs = [...bloque.matchAll(/<MACADDRESS>([^<]*)<\/MACADDRESS>/g)].map((m) => m[1]);
+    const wirelessMatch = bloque.match(/<WIRELESS_SERVER>[\s\S]*?<\/WIRELESS_SERVER>/);
+    const wireless = wirelessMatch ? wirelessMatch[0] : "";
+
+    aps[nombre] = {
+      modelo: modeloDevice(bloque),
+      serial: serialDevice(bloque),
+      macEthernet: macs[0] || null,
+      macWireless: macs[1] || null,
+      ssid: texto(wireless, "SSID"),
+      networkMode: texto(wireless, "NETWORK_MODE"),
+      canal: texto(wireless, "STANDARD_CHANNEL"),
+      banda: texto(wireless, "RADIO_BAND"),
+      ssidBroadcast: texto(wireless, "SSID_BROADCAST_ENABLED") === "1",
+      macFilter: texto(wireless, "MAC_FILTER_ENABLED") === "1",
+      encryptType: texto(wireless, "ENCRYPT_TYPE"),
+      authenType: texto(wireless, "AUTHEN_TYPE"),
+      clave: texto(wireless, "KEY"),
+    };
+  }
+  return aps;
+}
+
+function mostrarTodoAp(nombre, datos) {
+  const salida = [];
+  salida.push("=== IDENTIDAD Y HARDWARE ===");
+  salida.push(`Hostname     : ${nombre}`);
+  salida.push(`Modelo       : ${datos.modelo}`);
+  salida.push(`Numero serie : ${datos.serial}`);
+
+  salida.push("\n=== CONFIGURACION DE RED ===");
+  salida.push(`MAC puerto Ethernet : ${datos.macEthernet || "desconocida"}`);
+  salida.push(`MAC puerto Wireless : ${datos.macWireless || "desconocida"}`);
+
+  salida.push("\n=== RED INALAMBRICA ===");
+  salida.push(`SSID              : ${datos.ssid || "sin configurar"}`);
+  salida.push(`Modo de red (codigo): ${datos.networkMode || "sin configurar"}`);
+  salida.push(`Banda (codigo)    : ${datos.banda || "sin configurar"}`);
+  salida.push(`Canal             : ${datos.canal || "automático"}`);
+  salida.push(`Difusion de SSID  : ${datos.ssidBroadcast ? "si" : "no (oculto)"}`);
+  salida.push(`Filtro de MAC     : ${datos.macFilter ? "habilitado" : "deshabilitado"}`);
+  salida.push("Nota: los codigos de 'Modo de red' y 'Banda' corresponden a los combos del AP en Packet Tracer.");
+
+  salida.push("\n=== SEGURIDAD ===");
+  salida.push(`Tipo de cifrado (codigo)       : ${datos.encryptType || "sin configurar"}`);
+  salida.push(`Tipo de autenticacion (codigo) : ${datos.authenType || "sin configurar"}`);
+  salida.push(`Clave configurada              : ${datos.clave || "sin clave (red abierta)"}`);
+  salida.push("Nota: los codigos corresponden al combo 'Security' del AP en Packet Tracer.");
+
+  return salida.join("\n");
+}
+
+function parsearAtributosExtendidos(bloque) {
+  const crudo = texto(bloque, "EXT_ATTRIBUTES");
+  const atributos = {};
+  if (!crudo) return atributos;
+  for (const par of crudo.split(";")) {
+    if (par.includes(":")) {
+      const [clave, valor] = par.split(/:(.+)/);
+      if (clave.trim()) atributos[clave.trim()] = (valor || "").trim();
+    }
+  }
+  return atributos;
+}
+
+function parsearDispositivosGenerico(xml, tipos) {
+  const dispositivos = {};
+  for (const bloque of bloquesDevice(xml)) {
+    const tipo = tipoDevice(bloque);
+    if (!tipos.includes(tipo)) continue;
+    const nombre = nombreDevice(bloque, tipo);
+    const rc = bloque.match(/<RUNNINGCONFIG>([\s\S]*?)<\/RUNNINGCONFIG>/);
+    const lineasConfig = [];
+    if (rc) {
+      const regex = /<LINE>(.*?)<\/LINE>/g;
+      let m;
+      while ((m = regex.exec(rc[1])) !== null) lineasConfig.push(m[1]);
+    }
+
+    dispositivos[nombre] = {
+      tipo,
+      modelo: modeloDevice(bloque),
+      serial: serialDevice(bloque),
+      encendido: texto(bloque, "POWER") === "true",
+      macs: [...bloque.matchAll(/<MACADDRESS>([^<]*)<\/MACADDRESS>/g)].map((m) => m[1]),
+      atributos: parsearAtributosExtendidos(bloque),
+      lineasConfig,
+    };
+  }
+  return dispositivos;
+}
+
+function mostrarTodoGenerico(nombre, datos) {
+  const salida = [];
+  salida.push("=== IDENTIDAD Y HARDWARE ===");
+  salida.push(`Nombre       : ${nombre}`);
+  salida.push(`Tipo         : ${datos.tipo}`);
+  salida.push(`Modelo       : ${datos.modelo}`);
+  salida.push(`Numero serie : ${datos.serial}`);
+  salida.push(`Encendido    : ${datos.encendido ? "si" : "no"}`);
+
+  salida.push("\n=== PUERTOS ===");
+  if (!datos.macs.length) salida.push("Sin puertos con MAC registrada.");
+  else datos.macs.forEach((mac, i) => salida.push(`  Puerto ${i + 1}: MAC ${mac}`));
+
+  salida.push("\n=== ATRIBUTOS FISICOS ===");
+  const claves = Object.keys(datos.atributos);
+  if (!claves.length) salida.push("Sin atributos fisicos registrados.");
+  else for (const clave of claves) salida.push(`  ${clave.padEnd(15)}: ${datos.atributos[clave]}`);
+
+  salida.push("\n=== CONFIG COMPLETO (RAW) ===");
+  salida.push(datos.lineasConfig.length ? datos.lineasConfig.join("\n") : "Este dispositivo no tiene running-config.");
+
+  return salida.join("\n");
+}
+
+
+const CATEGORIAS = [
+  ["Routers", (xml) => parsearRouters(xml), mostrarTodoRouter, null],
+  ["Switches", (xml) => parsearSwitches(xml), mostrarTodoSwitch, null],
+  ["PCs / Laptops", (xml) => parsearHosts(xml, ["Pc", "Laptop"]), mostrarTodoHost, "leases"],
+  ["Servers", (xml) => parsearServers(xml), mostrarTodoServer, null],
+  ["Access Points", (xml) => parsearAccessPoints(xml), mostrarTodoAp, null],
+  ["Hubs", (xml) => parsearDispositivosGenerico(xml, ["Hub"]), mostrarTodoGenerico, null],
+  ["Bridges", (xml) => parsearDispositivosGenerico(xml, ["Bridge"]), mostrarTodoGenerico, null],
+  ["Firewalls", (xml) => parsearDispositivosGenerico(xml, ["Firewall"]), mostrarTodoGenerico, null],
+  ["Clouds", (xml) => parsearDispositivosGenerico(xml, ["Cloud"]), mostrarTodoGenerico, null],
+  ["DSL Modems", (xml) => parsearDispositivosGenerico(xml, ["DSL Modem"]), mostrarTodoGenerico, null],
+  ["Power Distribution Devices", (xml) => parsearDispositivosGenerico(xml, ["Power Distribution Device"]), mostrarTodoGenerico, null],
+  ["Cable Modems", (xml) => parsearDispositivosGenerico(xml, ["Cable Modem"]), mostrarTodoGenerico, null],
+  ["Home Wireless Routers", (xml) => parsearDispositivosGenerico(xml, ["Home Wireless Router"]), mostrarTodoGenerico, null],
+  ["Repeaters", (xml) => parsearDispositivosGenerico(xml, ["Repeater"]), mostrarTodoGenerico, null],
+  ["Printers", (xml) => parsearDispositivosGenerico(xml, ["Printer"]), mostrarTodoGenerico, null],
+  ["IP Phones", (xml) => parsearDispositivosGenerico(xml, ["IP Phone"]), mostrarTodoGenerico, null],
+  ["TVs", (xml) => parsearDispositivosGenerico(xml, ["TV"]), mostrarTodoGenerico, null],
+  ["Smartphones / Tablets", (xml) => parsearHosts(xml, ["Smart Phone", "Tablet PC"]), mostrarTodoHost, "leases"],
+  ["Dispositivos IoT", (xml) => parsearDispositivosGenerico(xml, ["MCU-PT", "SBC-PT", "Sensor", "Actuator", "Thing", "Home Gateway"]), mostrarTodoGenerico, null],
+];
+
+function esLineaKV(linea) {
+  if (linea.startsWith(" ")) return false;
+  const idx = linea.indexOf(": ");
+  return idx > 0 && idx < 40;
+}
+
+function esLineaKVIndentada(linea) {
+  if (!linea.startsWith("  ")) return false;
+  const sinIndent = linea.slice(2);
+  if (sinIndent.startsWith(" ")) return false;
+  const idx = sinIndent.indexOf(": ");
+  return idx > 0 && idx < 40;
+}
+
+function partirKV(linea) {
+  const idx = linea.indexOf(": ");
+  return [linea.slice(0, idx).trim(), linea.slice(idx + 2).trim()];
+}
+
+function renderizarKV(pares) {
+  const filas = pares
+    .map(([clave, valor]) => `<div class="fila-kv"><span class="clave">${escaparHtml(clave)}</span><span class="valor">${escaparHtml(valor) || "&mdash;"}</span></div>`)
+    .join("");
+  return `<div class="grupo-kv">${filas}</div>`;
+}
+
+function renderizarBloque(lineas) {
+  if (lineas.every(esLineaKV)) {
+    return renderizarKV(lineas.map(partirKV));
+  }
+
+  const primera = lineas[0];
+  const resto = lineas.slice(1);
+  if (!esLineaKV(primera) && resto.length && resto.every((l) => esLineaKVIndentada(l) || l.trim() === "")) {
+    const pares = resto.filter((l) => l.trim() !== "").map((l) => partirKV(l.slice(2)));
+    return `<div class="subbloque"><h4>${escaparHtml(primera)}</h4>${renderizarKV(pares)}</div>`;
+  }
+
+  if (lineas.length === 1 && !lineas[0].includes(": ")) {
+    return `<p class="nota">${escaparHtml(lineas[0])}</p>`;
+  }
+
+  return `<pre>${escaparHtml(lineas.join("\n"))}</pre>`;
+}
+
+function renderizarSeccion(titulo, cuerpo) {
+  const lineas = cuerpo.split("\n");
+  const bloques = [];
+  let actual = [];
+  for (const linea of lineas) {
+    if (linea.trim() === "") {
+      if (actual.length) bloques.push(actual);
+      actual = [];
+    } else {
+      actual.push(linea);
+    }
+  }
+  if (actual.length) bloques.push(actual);
+
+  const html = bloques.map(renderizarBloque).join("");
+  return `<section class="seccion"><h3>${escaparHtml(titulo)}</h3>${html}</section>`;
+}
+
+function renderizarTexto(texto) {
+  const partes = texto.split(/\n(?===[^\n]+===\n?)/);
+  const secciones = [];
+
+  for (const parte of partes) {
+    const m = parte.match(/^===\s*(.+?)\s*===\n?([\s\S]*)$/);
+    if (m) {
+      secciones.push(renderizarSeccion(m[1], m[2].replace(/\n$/, "")));
+    }
+  }
+
+  return `<div class="detalle">${secciones.join("")}</div>`;
+}
+function escaparHtml(texto) {
+  const div = document.createElement("div");
+  div.textContent = texto;
+  return div.innerHTML;
+}
+
+function slugificar(texto) {
+  return texto.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function construirPagina(xml) {
+  const leases = parsearLeasesDhcp(xml);
+  const listaDispositivos = document.getElementById("lista-dispositivos");
+  const contenido = document.getElementById("contenido");
+  listaDispositivos.innerHTML = "";
+  contenido.innerHTML = "";
+
+  let primero = true;
+
+  for (const [nombreCategoria, parseFn, mostrarFn, tipoExtra] of CATEGORIAS) {
+    const dispositivos = parseFn(xml);
+    const nombres = Object.keys(dispositivos);
+    if (!nombres.length) continue;
+
+    const encabezado = document.createElement("div");
+    encabezado.className = "categoria";
+    encabezado.textContent = nombreCategoria;
+    listaDispositivos.appendChild(encabezado);
+
+    for (const nombreDispositivo of nombres) {
+      const slug = slugificar(`${nombreCategoria}-${nombreDispositivo}`);
+      const datos = dispositivos[nombreDispositivo];
+      const extra = tipoExtra === "leases" ? leases : undefined;
+      const texto = extra !== undefined ? mostrarFn(nombreDispositivo, datos, extra) : mostrarFn(nombreDispositivo, datos);
+
+      const boton = document.createElement("button");
+      boton.className = "dispositivo" + (primero ? " active" : "");
+      boton.textContent = nombreDispositivo;
+      boton.dataset.target = slug;
+      listaDispositivos.appendChild(boton);
+
+      const panel = document.createElement("div");
+      panel.className = "panel" + (primero ? " active" : "");
+      panel.id = slug;
+      panel.innerHTML = `<h2>${escaparHtml(nombreDispositivo)}</h2><span class="etiqueta">${escaparHtml(nombreCategoria)}</span>${renderizarTexto(texto)}`;
+      contenido.appendChild(panel);
+
+      boton.addEventListener("click", () => {
+        document.querySelectorAll(".dispositivo").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+        boton.classList.add("active");
+        document.getElementById(slug).classList.add("active");
+      });
+
+      primero = false;
+    }
+  }
+
+  document.getElementById("buscador").addEventListener("input", (e) => {
+    const filtro = e.target.value.toLowerCase();
+    document.querySelectorAll(".dispositivo").forEach((b) => {
+      b.style.display = b.textContent.toLowerCase().includes(filtro) ? "block" : "none";
+    });
+    document.querySelectorAll(".categoria").forEach((c) => {
+      let siguiente = c.nextElementSibling;
+      let hayVisible = false;
+      while (siguiente && !siguiente.classList.contains("categoria")) {
+        if (siguiente.style.display !== "none") hayVisible = true;
+        siguiente = siguiente.nextElementSibling;
+      }
+      c.style.display = hayVisible ? "block" : "none";
+    });
+  });
+}
+
+function procesarArchivo(archivo) {
+  const errorCarga = document.getElementById("error-carga");
+  errorCarga.textContent = "";
+
+  if (!archivo.name.toLowerCase().endsWith(".xml")) {
+    errorCarga.textContent = "El archivo debe ser un .xml (descifrado con Unpacket a partir del .pkt)";
+    return;
+  }
+
+  const lector = new FileReader();
+  lector.onload = (e) => {
+    try {
+      construirPagina(e.target.result);
+      document.getElementById("zona-carga").classList.add("oculto");
+      document.getElementById("app").classList.add("visible");
+      document.getElementById("cambiar-archivo").style.display = "block";
+    } catch (err) {
+      errorCarga.textContent = "No se pudo leer el archivo: " + err.message;
+    }
+  };
+  lector.readAsText(archivo, "utf-8");
+}
+
+const dropzone = document.getElementById("dropzone");
+const inputArchivo = document.getElementById("input-archivo");
+
+dropzone.addEventListener("click", () => inputArchivo.click());
+inputArchivo.addEventListener("change", (e) => {
+  if (e.target.files.length) procesarArchivo(e.target.files[0]);
+});
+
+dropzone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropzone.classList.add("arrastrando");
+});
+dropzone.addEventListener("dragleave", () => dropzone.classList.remove("arrastrando"));
+dropzone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropzone.classList.remove("arrastrando");
+  if (e.dataTransfer.files.length) procesarArchivo(e.dataTransfer.files[0]);
+});
+
+document.getElementById("cambiar-archivo").addEventListener("click", () => {
+  document.getElementById("app").classList.remove("visible");
+  document.getElementById("zona-carga").classList.remove("oculto");
+  document.getElementById("cambiar-archivo").style.display = "none";
+  document.getElementById("error-carga").textContent = "";
+});
+</script>
+</body>
+</html>

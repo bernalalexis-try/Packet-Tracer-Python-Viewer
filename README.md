@@ -8,14 +8,9 @@ Herramienta que lee archivos de topología de Cisco Packet Tracer (.xml, descifr
    ```
    py unpacket.py tu_proyecto.pkt -o tu_proyecto.xml
    ```
-2. Colocá `main.py` y el `.xml` generado en la raíz del proyecto, junto a la carpeta `viewers/`.
-3. Ejecutá:
-   ```
-   py main.py
-   ```
-4. Elegí una categoría (`1` al `19`), después elegí el dispositivo por número o escribiendo su nombre. `0` siempre vuelve al paso anterior; desde el listado de dispositivos también volvés al menú principal escribiendo `volver`.
+2. Abrir el archivo `HTML`
 
-También podés ejecutar cualquiera de los viewers por separado si solo necesitás uno (por ejemplo, `py viewers/routerViewer.py`).
+3. Abrir el archivo `.xml` como indica la pagina. 
 
 ## Qué se puede hacer con un router
 
