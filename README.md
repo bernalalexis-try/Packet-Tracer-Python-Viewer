@@ -10,7 +10,7 @@ Herramienta que lee archivos de topología de Cisco Packet Tracer (.xml, descifr
    ```
 2. Abrir el archivo `HTML`
 
-3. Abrir el archivo `.xml` como indica la pagina. 
+3. Abrir el archivo `.xml` como indica la pagina 
 
 ## Qué se puede hacer con un router
 
