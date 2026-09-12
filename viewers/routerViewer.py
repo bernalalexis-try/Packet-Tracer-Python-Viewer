@@ -96,6 +96,7 @@ def parsear_interfaces(lineas):
                 "nombre": linea.split(" ", 1)[1].strip(),
                 "ip": None,
                 "mask": None,
+                "ips_secundarias": [],
                 "up": True,
                 "descripcion": None,
                 "duplex": None,
@@ -114,7 +115,10 @@ def parsear_interfaces(lineas):
             actual = None
             continue
 
-        m_ip = re.match(r"ip address (\d{1,3}(?:\.\d{1,3}){3}) (\d{1,3}(?:\.\d{1,3}){3})", contenido)
+        m_ip = re.match(
+            r"ip address (\d{1,3}(?:\.\d{1,3}){3}) (\d{1,3}(?:\.\d{1,3}){3})(\s+secondary)?\s*$",
+            contenido,
+        )
         m_desc = re.match(r"description (.+)", contenido)
         m_duplex = re.match(r"duplex (\S+)", contenido)
         m_speed = re.match(r"speed (\S+)", contenido)
@@ -122,7 +126,10 @@ def parsear_interfaces(lineas):
         m_vlan = re.match(r"encapsulation dot1Q (\d+)", contenido)
 
         if m_ip:
-            actual["ip"], actual["mask"] = m_ip.group(1), m_ip.group(2)
+            if m_ip.group(3):
+                actual["ips_secundarias"].append((m_ip.group(1), m_ip.group(2)))
+            else:
+                actual["ip"], actual["mask"] = m_ip.group(1), m_ip.group(2)
         elif contenido == "shutdown":
             actual["up"] = False
         elif m_desc:
@@ -370,11 +377,16 @@ def construir_entradas(interfaces, rutas_estaticas):
     for intf in interfaces:
         if not intf["ip"] or not intf["up"]:
             continue
-        prefixlen = mask_to_prefixlen(intf["mask"])
-        red = network_address(intf["ip"], prefixlen)
 
-        entradas[(red, prefixlen)] = {"codigo": "C", "via": [], "interfaz": intf["nombre"]}
-        entradas[(ip_to_int(intf["ip"]), 32)] = {"codigo": "L", "via": [], "interfaz": intf["nombre"]}
+        direcciones = [(intf["ip"], intf["mask"])]
+        direcciones.extend(intf.get("ips_secundarias", []))
+
+        for ip, mask in direcciones:
+            prefixlen = mask_to_prefixlen(mask)
+            red = network_address(ip, prefixlen)
+
+            entradas[(red, prefixlen)] = {"codigo": "C", "via": [], "interfaz": intf["nombre"]}
+            entradas[(ip_to_int(ip), 32)] = {"codigo": "L", "via": [], "interfaz": intf["nombre"]}
 
     for ruta in rutas_estaticas:
         prefixlen = mask_to_prefixlen(ruta["mask"])
@@ -476,6 +488,8 @@ def mostrar_interfaces(lineas):
         estado = "up" if intf["up"] else "administratively down"
         print(f"\n{intf['nombre']}  [{estado}]")
         print(f"  IP           : {intf['ip'] or 'sin IP'} {intf['mask'] or ''}".rstrip())
+        for ip_sec, mask_sec in intf.get("ips_secundarias", []):
+            print(f"  IP secundaria: {ip_sec} {mask_sec}")
         if intf["descripcion"]:
             print(f"  Descripcion  : {intf['descripcion']}")
         if intf["vlan"]:
