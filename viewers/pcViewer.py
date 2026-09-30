@@ -1,17 +1,9 @@
-import glob
-import os
 import re
-import sys
 
-
-def encontrar_xml():
-    base = os.path.dirname(os.path.abspath(__file__))
-    raiz = os.path.dirname(base)
-    candidatos = glob.glob(os.path.join(raiz, "*.xml")) + glob.glob(os.path.join(base, "*.xml"))
-    if not candidatos:
-        print("No se encontró ningún archivo .xml en el proyecto.")
-        sys.exit(1)
-    return candidatos[0]
+try:
+    from viewers.comun import agregar_dispositivo, decodificar, encontrar_xml
+except ImportError:  # al correrlo directo: py viewers/pcViewer.py
+    from comun import agregar_dispositivo, decodificar, encontrar_xml
 
 
 def _texto(bloque, tag):
@@ -19,7 +11,10 @@ def _texto(bloque, tag):
     return m.group(1) if m and m.group(1) else None
 
 
-def parsear_hosts(ruta_xml):
+TIPOS = ("Pc", "Laptop")
+
+
+def parsear_hosts(ruta_xml, tipos=TIPOS, nombre_por_defecto="PC"):
     with open(ruta_xml, "r", encoding="utf-8") as f:
         contenido = f.read()
 
@@ -28,16 +23,16 @@ def parsear_hosts(ruta_xml):
         bloque = match.group(0)
 
         tipo_match = re.search(r"<TYPE[^>]*>([^<]*)</TYPE>", bloque)
-        if not tipo_match or tipo_match.group(1).strip() not in ("Pc", "Laptop"):
+        if not tipo_match or tipo_match.group(1).strip() not in tipos:
             continue
 
         nombre_match = re.search(r'<NAME translate="true">([^<]*)</NAME>', bloque)
-        nombre = nombre_match.group(1).strip() if nombre_match else "PC"
+        nombre = nombre_match.group(1).strip() if nombre_match else nombre_por_defecto
 
         port_match = re.search(r"<PORT>.*?</PORT>", bloque, re.DOTALL)
         port = port_match.group(0) if port_match else ""
 
-        hosts[nombre] = {
+        datos = {
             "tipo": tipo_match.group(1).strip(),
             "mac": _texto(port, "MACADDRESS"),
             "dhcp": _texto(port, "PORT_DHCP_ENABLE") == "true",
@@ -46,6 +41,7 @@ def parsear_hosts(ruta_xml):
             "gateway": _texto(port, "PORT_GATEWAY"),
             "dns": _texto(port, "PORT_DNS"),
         }
+        agregar_dispositivo(hosts, decodificar(nombre), decodificar(datos))
 
     return hosts
 
@@ -84,7 +80,7 @@ def parsear_leases_dhcp(ruta_xml):
                 if mac and ip:
                     leases[mac] = {"ip": ip, "pool": nombre_pool, "servidor": nombre_servidor}
 
-    return leases
+    return decodificar(leases)
 
 
 def mostrar_identidad(nombre, datos):
@@ -103,6 +99,9 @@ def mostrar_red(datos, leases):
             print(f"Servidor DHCP: {lease['servidor']}")
         else:
             print("IP asignada  : sin lease registrado (no obtuvo IP aun)")
+            if datos["ip"]:
+                aclaracion = " (APIPA: no le respondio ningun DHCP)" if datos["ip"].startswith("169.254.") else ""
+                print(f"IP del puerto: {datos['ip']} {datos['mask'] or ''}".rstrip() + aclaracion)
     else:
         print("Configuracion: Estatica")
         print(f"IP           : {datos['ip'] or 'sin configurar'}")
@@ -146,20 +145,25 @@ def menu_host(nombre, datos, leases):
         print()
 
 
-def main():
+def main(
+    parsear=parsear_hosts,
+    mensaje_sin_dispositivos="No se encontraron PCs ni Laptops en el archivo XML.",
+    titulo="Hosts",
+    prompt="PC/Laptop: ",
+):
     ruta_xml = encontrar_xml()
-    hosts = parsear_hosts(ruta_xml)
+    hosts = parsear(ruta_xml)
     leases = parsear_leases_dhcp(ruta_xml)
 
     if not hosts:
-        print("No se encontraron PCs ni Laptops en el archivo XML.")
+        print(mensaje_sin_dispositivos)
         return
 
-    print(f"Hosts disponibles: {', '.join(hosts.keys())}")
+    print(f"{titulo} disponibles: {', '.join(hosts.keys())}")
     print("Escribí 'salir' para salir.\n")
 
     while True:
-        nombre = input("PC/Laptop: ").strip()
+        nombre = input(prompt).strip()
         if nombre.lower() == "salir":
             break
 

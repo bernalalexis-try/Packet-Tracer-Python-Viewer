@@ -1,7 +1,9 @@
-import glob
-import os
 import re
-import sys
+
+try:
+    from viewers.comun import agregar_dispositivo, decodificar, encontrar_xml
+except ImportError:  # al correrlo directo: py viewers/routerViewer.py
+    from comun import agregar_dispositivo, decodificar, encontrar_xml
 
 
 def ip_to_int(ip):
@@ -38,16 +40,6 @@ def classful_info(network_int):
     return classful_len, major
 
 
-def encontrar_xml():
-    base = os.path.dirname(os.path.abspath(__file__))
-    raiz = os.path.dirname(base)
-    candidatos = glob.glob(os.path.join(raiz, "*.xml")) + glob.glob(os.path.join(base, "*.xml"))
-    if not candidatos:
-        print("No se encontró ningún archivo .xml en el proyecto.")
-        sys.exit(1)
-    return candidatos[0]
-
-
 def parsear_routers(ruta_xml):
     with open(ruta_xml, "r", encoding="utf-8") as f:
         contenido = f.read()
@@ -75,11 +67,12 @@ def parsear_routers(ruta_xml):
 
         lineas = re.findall(r"<LINE>(.*?)</LINE>", rc_match.group(1))
 
-        routers[nombre] = {
+        datos = {
             "modelo": modelo,
             "serial": serial,
             "lineas": lineas,
         }
+        agregar_dispositivo(routers, decodificar(nombre), decodificar(datos))
 
     return routers
 
@@ -555,7 +548,10 @@ def mostrar_red(lineas):
     print("\nDHCP:")
     if dhcp:
         for pool in dhcp:
-            print(f"  Pool {pool['nombre']}: red {pool['red']}, gateway {pool['gateway']}, dns {pool['dns']}")
+            print(
+                f"  Pool {pool['nombre']}: red {pool['red'] or 'sin configurar'}, "
+                f"gateway {pool['gateway'] or 'sin configurar'}, dns {pool['dns'] or 'sin configurar'}"
+            )
     else:
         print("  Sin pools DHCP configurados.")
 

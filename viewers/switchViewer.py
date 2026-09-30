@@ -1,17 +1,9 @@
-import glob
-import os
 import re
-import sys
 
-
-def encontrar_xml():
-    base = os.path.dirname(os.path.abspath(__file__))
-    raiz = os.path.dirname(base)
-    candidatos = glob.glob(os.path.join(raiz, "*.xml")) + glob.glob(os.path.join(base, "*.xml"))
-    if not candidatos:
-        print("No se encontró ningún archivo .xml en el proyecto.")
-        sys.exit(1)
-    return candidatos[0]
+try:
+    from viewers.comun import agregar_dispositivo, decodificar, encontrar_xml
+except ImportError:  # al correrlo directo: py viewers/switchViewer.py
+    from comun import agregar_dispositivo, decodificar, encontrar_xml
 
 
 def parsear_switches(ruta_xml):
@@ -44,12 +36,13 @@ def parsear_switches(ruta_xml):
             vlans[int(numero)] = nombre_vlan
         vlans_ordenadas = [(n, vlans[n]) for n in sorted(vlans)]
 
-        switches[nombre] = {
+        datos = {
             "modelo": modelo,
             "serial": serial,
             "lineas": lineas,
             "vlans": vlans_ordenadas,
         }
+        agregar_dispositivo(switches, decodificar(nombre), decodificar(datos))
 
     return switches
 
