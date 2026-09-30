@@ -1,4 +1,4 @@
-# Router & Switch Viewer
+# Packet Tracer Python Viewer
 
 Herramienta que lee archivos de topología de Cisco Packet Tracer (.xml, descifrados previamente) y extrae información de los dispositivos de red: routers, switches, PCs/Laptops, servers, access points, hubs, bridges, firewalls, clouds, DSL modems, power distribution devices, cable modems, home wireless routers, repeaters, printers, IP phones, TVs, smartphones/tablets y dispositivos IoT. Basado en el trabajo de descifrado de [Punkcake21/Unpacket](https://github.com/Punkcake21/Unpacket.git).
 
@@ -10,7 +10,27 @@ Herramienta que lee archivos de topología de Cisco Packet Tracer (.xml, descifr
    ```
 2. Abrir el archivo `HTML`
 
-3. Abrir el archivo `.xml` como indica la pagina 
+3. Abrir el archivo `.xml` como indica la pagina
+
+4. Con el botón **Descargar reporte .txt** se guarda la información de todos los dispositivos en un archivo de texto.
+
+## Uso desde la consola
+
+1. Correr `main.py` pasándole el `.xml`:
+   ```
+   py main.py tu_proyecto.xml
+   ```
+2. Si no le pasás el archivo, busca un `.xml` en la carpeta del proyecto. Si hay más de uno, te pregunta cuál abrir.
+
+3. El menú muestra cuántos dispositivos hay de cada tipo.
+
+4. Para guardar todo en un `.txt` sin entrar al menú:
+   ```
+   py main.py tu_proyecto.xml --exportar reporte.txt
+   ```
+   También está la opción **Exportar todo a un .txt** en el menú.
+
+Si dos dispositivos tienen el mismo nombre, el segundo aparece como `Nombre (2)`.
 
 ## Qué se puede hacer con un router
 
@@ -53,7 +73,7 @@ Herramienta que lee archivos de topología de Cisco Packet Tracer (.xml, descifr
 
 1. **Identidad**: nombre, tipo (Pc/Laptop) y dirección MAC.
 
-2. **Configuración de red**: IP asignada por DHCP cruzando la MAC con los leases de los servidores DHCP de la topología (pool y servidor incluidos), o IP, máscara, gateway y DNS estáticos.
+2. **Configuración de red**: IP asignada por DHCP cruzando la MAC con los leases de los servidores DHCP de la topología (pool y servidor incluidos), o IP, máscara, gateway y DNS estáticos. Si no tiene lease, muestra la IP que tiene el puerto y avisa si es una APIPA (`169.254.x.x`).
 
 3. **Todo**: ambas secciones juntas.
 
@@ -114,3 +134,9 @@ Cada uno tiene su propio viewer (`cableModemViewer.py`, `homeWirelessRouterViewe
 ## Qué se puede hacer con dispositivos IoT
 
 `iotViewer.py` agrupa microcontroladores (MCU), sensores, actuadores y otros componentes IoT bajo el mismo menú que los dispositivos genéricos: identidad y hardware, puertos, atributos físicos, config completo y todo junto.
+
+## Tests
+
+```
+py -m unittest discover -s tests
+```
