@@ -123,10 +123,15 @@
     border-radius: 999px;
     margin-bottom: 16px;
   }
-  #cambiar-archivo {
+  #acciones {
     position: fixed;
     top: 16px;
     right: 24px;
+    display: none;
+    gap: 8px;
+  }
+  #acciones.visible { display: flex; }
+  #acciones button {
     background: var(--panel-bg);
     border: 1px solid var(--borde);
     color: var(--texto-tenue);
@@ -135,7 +140,7 @@
     cursor: pointer;
     font-size: 13px;
   }
-  #cambiar-archivo:hover { color: var(--texto); }
+  #acciones button:hover { color: var(--texto); }
   pre {
     background: var(--panel-bg);
     border: 1px solid var(--borde);
@@ -223,7 +228,10 @@
   <input type="file" id="input-archivo" accept=".xml">
 </div>
 
-<button id="cambiar-archivo" style="display:none">Cargar otro XML</button>
+<div id="acciones">
+  <button id="descargar-reporte">Descargar reporte .txt</button>
+  <button id="cambiar-archivo">Cargar otro XML</button>
+</div>
 
 <div id="app">
   <div id="sidebar">
@@ -234,6 +242,37 @@
 </div>
 
 <script>
+function decodificar(valor) {
+  // Convierte las entidades del XML (&lt; &gt; &amp;...) en sus caracteres.
+  // El bloque crudo de los servers se deja tal cual: se interpreta al mostrarlo.
+  if (typeof valor === "string") {
+    if (!valor.includes("&")) return valor;
+    const area = document.createElement("textarea");
+    area.innerHTML = valor;
+    return area.value;
+  }
+  if (Array.isArray(valor)) return valor.map(decodificar);
+  if (valor && typeof valor === "object") {
+    const resultado = {};
+    for (const [clave, v] of Object.entries(valor)) {
+      resultado[decodificar(clave)] = clave === "bloque" ? v : decodificar(v);
+    }
+    return resultado;
+  }
+  return valor;
+}
+
+function agregarDispositivo(dispositivos, nombre, datos) {
+  // Si ya hay uno con el mismo nombre, se guarda como "Nombre (2)", "Nombre (3)"...
+  let clave = nombre;
+  let numero = 2;
+  while (clave in dispositivos) {
+    clave = `${nombre} (${numero})`;
+    numero++;
+  }
+  dispositivos[clave] = datos;
+}
+
 function texto(bloque, tag) {
   const m = bloque.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
   return m && m[1] ? m[1] : null;
@@ -315,11 +354,11 @@ function parsearRouters(xml) {
   for (const bloque of bloquesDevice(xml)) {
     if (tipoDevice(bloque) !== "Router") continue;
     const nombre = nombreDevice(bloque, "Router");
-    routers[nombre] = {
+    agregarDispositivo(routers, decodificar(nombre), decodificar({
       modelo: modeloDevice(bloque),
       serial: serialDevice(bloque),
       lineas: lineasRunningConfig(bloque),
-    };
+    }));
   }
   return routers;
 }
@@ -502,12 +541,12 @@ function parsearSwitches(xml) {
     for (const [, nombreVlan, numero] of vlansCrudas) vlansMap.set(Number(numero), nombreVlan);
     const vlans = [...vlansMap.entries()].sort((a, b) => a[0] - b[0]);
 
-    switches[nombre] = {
+    agregarDispositivo(switches, decodificar(nombre), decodificar({
       modelo: modeloDevice(bloque),
       serial: serialDevice(bloque),
       lineas: lineasRunningConfig(bloque),
       vlans,
-    };
+    }));
   }
   return switches;
 }
@@ -618,14 +657,6 @@ function parsearSpanningTree(lineas) {
     else if (mPrio) prioridades.push([mPrio[1], mPrio[2]]);
   }
   return { modo, prioridades };
-}
-
-function parsearVersionIOS(lineas) {
-  for (const linea of lineas) {
-    const m = linea.trim().match(/^version (\S+)/);
-    if (m) return m[1];
-  }
-  return "Desconocida";
 }
 
 function parsearSeguridad(lineas) {
@@ -925,7 +956,7 @@ function parsearHosts(xml, tipos) {
     const nombre = nombreDevice(bloque, "Dispositivo");
     const port = (bloque.match(/<PORT>[\s\S]*?<\/PORT>/) || [""])[0];
 
-    hosts[nombre] = {
+    agregarDispositivo(hosts, decodificar(nombre), decodificar({
       tipo,
       mac: texto(port, "MACADDRESS"),
       dhcp: texto(port, "PORT_DHCP_ENABLE") === "true",
@@ -933,7 +964,7 @@ function parsearHosts(xml, tipos) {
       mask: texto(port, "SUBNET"),
       gateway: texto(port, "PORT_GATEWAY"),
       dns: texto(port, "PORT_DNS"),
-    };
+    }));
   }
   return hosts;
 }
@@ -961,7 +992,7 @@ function parsearLeasesDhcp(xml) {
       }
     }
   }
-  return leases;
+  return decodificar(leases);
 }
 
 function mostrarTodoHost(nombre, datos, leases) {
@@ -981,6 +1012,10 @@ function mostrarTodoHost(nombre, datos, leases) {
       salida.push(`Servidor DHCP: ${lease.servidor}`);
     } else {
       salida.push("IP asignada  : sin lease registrado (no obtuvo IP aun)");
+      if (datos.ip) {
+        const aclaracion = datos.ip.startsWith("169.254.") ? " (APIPA: no le respondio ningun DHCP)" : "";
+        salida.push(`IP del puerto: ${`${datos.ip} ${datos.mask || ""}`.trim()}${aclaracion}`);
+      }
     }
   } else {
     salida.push("Configuracion: Estatica");
@@ -1000,7 +1035,7 @@ function parsearServers(xml) {
     const nombre = nombreDevice(bloque, "Server");
     const port = (bloque.match(/<PORT>[\s\S]*?<\/PORT>/) || [""])[0];
 
-    servers[nombre] = {
+    agregarDispositivo(servers, decodificar(nombre), decodificar({
       modelo: modeloDevice(bloque),
       serial: serialDevice(bloque),
       mac: texto(port, "MACADDRESS"),
@@ -1009,7 +1044,7 @@ function parsearServers(xml) {
       gateway: texto(port, "PORT_GATEWAY"),
       dns: texto(port, "PORT_DNS"),
       bloque,
-    };
+    }));
   }
   return servers;
 }
@@ -1035,7 +1070,7 @@ function parsearDhcpServer(bloque) {
       leasesActivos,
     });
   }
-  return { habilitado, pools };
+  return decodificar({ habilitado, pools });
 }
 
 function parsearDnsServer(bloque) {
@@ -1053,14 +1088,14 @@ function parsearDnsServer(bloque) {
       ip: texto(rr, "IPADDRESS"),
     });
   }
-  return { habilitado, registros };
+  return decodificar({ habilitado, registros });
 }
 
 function parsearHttpServer(bloque) {
   const m = bloque.match(/<HTTP_SERVER>[\s\S]*?<\/HTTP_SERVER>/);
   if (!m) return { habilitado: false, usuario: null, password: null };
   const b = m[0];
-  return { habilitado: texto(b, "ENABLED") === "1", usuario: texto(b, "USERNAME"), password: texto(b, "PASSWORD") };
+  return decodificar({ habilitado: texto(b, "ENABLED") === "1", usuario: texto(b, "USERNAME"), password: texto(b, "PASSWORD") });
 }
 
 function parsearFtpServer(bloque) {
@@ -1073,19 +1108,19 @@ function parsearFtpServer(bloque) {
     const c = cMatch[0];
     cuentas.push({ usuario: texto(c, "USERNAME"), password: texto(c, "PASSWORD"), permisos: texto(c, "PERMISSIONS") });
   }
-  return { habilitado, cuentas };
+  return decodificar({ habilitado, cuentas });
 }
 
 function parsearEmailServer(bloque) {
   const m = bloque.match(/<EMAIL_SERVER>[\s\S]*?<\/EMAIL_SERVER>/);
   if (!m) return { smtp: false, pop3: false, dominio: null, usuarios: null };
   const b = m[0];
-  return {
+  return decodificar({
     smtp: texto(b, "SMTP_ENABLED") === "1",
     pop3: texto(b, "POP3_ENABLED") === "1",
     dominio: texto(b, "SMTP_DOMAIN"),
     usuarios: texto(b, "NO_OF_USERS"),
-  };
+  });
 }
 
 function mostrarTodoServer(nombre, datos) {
@@ -1166,7 +1201,7 @@ function parsearAccessPoints(xml) {
     const wirelessMatch = bloque.match(/<WIRELESS_SERVER>[\s\S]*?<\/WIRELESS_SERVER>/);
     const wireless = wirelessMatch ? wirelessMatch[0] : "";
 
-    aps[nombre] = {
+    agregarDispositivo(aps, decodificar(nombre), decodificar({
       modelo: modeloDevice(bloque),
       serial: serialDevice(bloque),
       macEthernet: macs[0] || null,
@@ -1180,7 +1215,7 @@ function parsearAccessPoints(xml) {
       encryptType: texto(wireless, "ENCRYPT_TYPE"),
       authenType: texto(wireless, "AUTHEN_TYPE"),
       clave: texto(wireless, "KEY"),
-    };
+    }));
   }
   return aps;
 }
@@ -1241,7 +1276,7 @@ function parsearDispositivosGenerico(xml, tipos) {
       while ((m = regex.exec(rc[1])) !== null) lineasConfig.push(m[1]);
     }
 
-    dispositivos[nombre] = {
+    agregarDispositivo(dispositivos, decodificar(nombre), decodificar({
       tipo,
       modelo: modeloDevice(bloque),
       serial: serialDevice(bloque),
@@ -1249,7 +1284,7 @@ function parsearDispositivosGenerico(xml, tipos) {
       macs: [...bloque.matchAll(/<MACADDRESS>([^<]*)<\/MACADDRESS>/g)].map((m) => m[1]),
       atributos: parsearAtributosExtendidos(bloque),
       lineasConfig,
-    };
+    }));
   }
   return dispositivos;
 }
@@ -1265,12 +1300,12 @@ function mostrarTodoGenerico(nombre, datos) {
 
   salida.push("\n=== PUERTOS ===");
   if (!datos.macs.length) salida.push("Sin puertos con MAC registrada.");
-  else datos.macs.forEach((mac, i) => salida.push(`  Puerto ${i + 1}: MAC ${mac}`));
+  else datos.macs.forEach((mac, i) => salida.push(`Puerto ${i + 1}: ${mac}`));
 
   salida.push("\n=== ATRIBUTOS FISICOS ===");
   const claves = Object.keys(datos.atributos);
   if (!claves.length) salida.push("Sin atributos fisicos registrados.");
-  else for (const clave of claves) salida.push(`  ${clave.padEnd(15)}: ${datos.atributos[clave]}`);
+  else for (const clave of claves) salida.push(`${clave.padEnd(15)}: ${datos.atributos[clave]}`);
 
   salida.push("\n=== CONFIG COMPLETO (RAW) ===");
   salida.push(datos.lineasConfig.length ? datos.lineasConfig.join("\n") : "Este dispositivo no tiene running-config.");
@@ -1383,9 +1418,8 @@ function escaparHtml(texto) {
   return div.innerHTML;
 }
 
-function slugificar(texto) {
-  return texto.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-}
+let reporteActual = "";
+let nombreArchivoActual = "";
 
 function construirPagina(xml) {
   const leases = parsearLeasesDhcp(xml);
@@ -1393,8 +1427,10 @@ function construirPagina(xml) {
   const contenido = document.getElementById("contenido");
   listaDispositivos.innerHTML = "";
   contenido.innerHTML = "";
+  document.getElementById("buscador").value = "";
 
-  let primero = true;
+  const reporte = [];
+  let indice = 0;
 
   for (const [nombreCategoria, parseFn, mostrarFn, tipoExtra] of CATEGORIAS) {
     const dispositivos = parseFn(xml);
@@ -1403,24 +1439,30 @@ function construirPagina(xml) {
 
     const encabezado = document.createElement("div");
     encabezado.className = "categoria";
-    encabezado.textContent = nombreCategoria;
+    encabezado.textContent = `${nombreCategoria} (${nombres.length})`;
     listaDispositivos.appendChild(encabezado);
 
+    reporte.push(`${"#".repeat(60)}\n# ${nombreCategoria.toUpperCase()} (${nombres.length})\n${"#".repeat(60)}`);
+
     for (const nombreDispositivo of nombres) {
-      const slug = slugificar(`${nombreCategoria}-${nombreDispositivo}`);
+      const id = `dispositivo-${indice}`;
+      const primero = indice === 0;
+      indice++;
+
       const datos = dispositivos[nombreDispositivo];
       const extra = tipoExtra === "leases" ? leases : undefined;
       const texto = extra !== undefined ? mostrarFn(nombreDispositivo, datos, extra) : mostrarFn(nombreDispositivo, datos);
+      reporte.push(`\n----- ${nombreDispositivo} -----\n${texto}\n`);
 
       const boton = document.createElement("button");
       boton.className = "dispositivo" + (primero ? " active" : "");
       boton.textContent = nombreDispositivo;
-      boton.dataset.target = slug;
+      boton.dataset.target = id;
       listaDispositivos.appendChild(boton);
 
       const panel = document.createElement("div");
       panel.className = "panel" + (primero ? " active" : "");
-      panel.id = slug;
+      panel.id = id;
       panel.innerHTML = `<h2>${escaparHtml(nombreDispositivo)}</h2><span class="etiqueta">${escaparHtml(nombreCategoria)}</span>${renderizarTexto(texto)}`;
       contenido.appendChild(panel);
 
@@ -1428,29 +1470,41 @@ function construirPagina(xml) {
         document.querySelectorAll(".dispositivo").forEach((b) => b.classList.remove("active"));
         document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
         boton.classList.add("active");
-        document.getElementById(slug).classList.add("active");
+        document.getElementById(id).classList.add("active");
       });
-
-      primero = false;
     }
   }
 
-  document.getElementById("buscador").addEventListener("input", (e) => {
-    const filtro = e.target.value.toLowerCase();
-    document.querySelectorAll(".dispositivo").forEach((b) => {
-      b.style.display = b.textContent.toLowerCase().includes(filtro) ? "block" : "none";
-    });
-    document.querySelectorAll(".categoria").forEach((c) => {
-      let siguiente = c.nextElementSibling;
-      let hayVisible = false;
-      while (siguiente && !siguiente.classList.contains("categoria")) {
-        if (siguiente.style.display !== "none") hayVisible = true;
-        siguiente = siguiente.nextElementSibling;
-      }
-      c.style.display = hayVisible ? "block" : "none";
-    });
+  reporteActual = reporte.join("\n");
+}
+
+function filtrarDispositivos(filtro) {
+  document.querySelectorAll(".dispositivo").forEach((b) => {
+    b.style.display = b.textContent.toLowerCase().includes(filtro) ? "block" : "none";
+  });
+  document.querySelectorAll(".categoria").forEach((c) => {
+    let siguiente = c.nextElementSibling;
+    let hayVisible = false;
+    while (siguiente && !siguiente.classList.contains("categoria")) {
+      if (siguiente.style.display !== "none") hayVisible = true;
+      siguiente = siguiente.nextElementSibling;
+    }
+    c.style.display = hayVisible ? "block" : "none";
   });
 }
+
+document.getElementById("buscador").addEventListener("input", (e) => {
+  filtrarDispositivos(e.target.value.toLowerCase());
+});
+
+document.getElementById("descargar-reporte").addEventListener("click", () => {
+  const blob = new Blob([reporteActual], { type: "text/plain;charset=utf-8" });
+  const enlace = document.createElement("a");
+  enlace.href = URL.createObjectURL(blob);
+  enlace.download = `${nombreArchivoActual.replace(/\.xml$/i, "") || "topologia"}-reporte.txt`;
+  enlace.click();
+  URL.revokeObjectURL(enlace.href);
+});
 
 function procesarArchivo(archivo) {
   const errorCarga = document.getElementById("error-carga");
@@ -1464,10 +1518,11 @@ function procesarArchivo(archivo) {
   const lector = new FileReader();
   lector.onload = (e) => {
     try {
+      nombreArchivoActual = archivo.name;
       construirPagina(e.target.result);
       document.getElementById("zona-carga").classList.add("oculto");
       document.getElementById("app").classList.add("visible");
-      document.getElementById("cambiar-archivo").style.display = "block";
+      document.getElementById("acciones").classList.add("visible");
     } catch (err) {
       errorCarga.textContent = "No se pudo leer el archivo: " + err.message;
     }
@@ -1481,6 +1536,8 @@ const inputArchivo = document.getElementById("input-archivo");
 dropzone.addEventListener("click", () => inputArchivo.click());
 inputArchivo.addEventListener("change", (e) => {
   if (e.target.files.length) procesarArchivo(e.target.files[0]);
+  // Así se puede volver a elegir el mismo archivo.
+  e.target.value = "";
 });
 
 dropzone.addEventListener("dragover", (e) => {
@@ -1497,7 +1554,7 @@ dropzone.addEventListener("drop", (e) => {
 document.getElementById("cambiar-archivo").addEventListener("click", () => {
   document.getElementById("app").classList.remove("visible");
   document.getElementById("zona-carga").classList.remove("oculto");
-  document.getElementById("cambiar-archivo").style.display = "none";
+  document.getElementById("acciones").classList.remove("visible");
   document.getElementById("error-carga").textContent = "";
 });
 </script>
