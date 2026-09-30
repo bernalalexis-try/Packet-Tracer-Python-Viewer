@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PACKETTRACER5>
+  <NETWORK>
+    <DEVICES>
+      <DEVICE>
+        <ENGINE>
+          <TYPE customModel="" model="2911">Router</TYPE>
+          <NAME translate="true">R1</NAME>
+          <POWER>true</POWER>
+          <SERIALNUMBER>FTX0001R1-</SERIALNUMBER>
+          <RUNNINGCONFIG>
+            <LINE>version 15.1</LINE>
+            <LINE>hostname R1</LINE>
+            <LINE>!</LINE>
+            <LINE>ip dhcp pool LAN</LINE>
+            <LINE> network 192.168.1.0 255.255.255.0</LINE>
+            <LINE> default-router 192.168.1.1</LINE>
+            <LINE>!</LINE>
+            <LINE>interface GigabitEthernet0/0</LINE>
+            <LINE> description LAN &lt;-&gt; SW1 &amp; PCs</LINE>
+            <LINE> ip address 192.168.1.1 255.255.255.0</LINE>
+            <LINE>!</LINE>
+            <LINE>interface GigabitEthernet0/1</LINE>
+            <LINE> ip address 10.0.0.1 255.255.255.252</LINE>
+            <LINE>!</LINE>
+            <LINE>router ospf 1</LINE>
+            <LINE> network 192.168.1.0 0.0.0.255 area 0</LINE>
+            <LINE>!</LINE>
+            <LINE>ip route 0.0.0.0 0.0.0.0 10.0.0.2</LINE>
+            <LINE>end</LINE>
+          </RUNNINGCONFIG>
+        </ENGINE>
+      </DEVICE>
+      <DEVICE>
+        <ENGINE>
+          <TYPE customModel="" model="2911">Router</TYPE>
+          <NAME translate="true">R1</NAME>
+          <SERIALNUMBER>FTX0002R1-</SERIALNUMBER>
+          <RUNNINGCONFIG>
+            <LINE>version 15.1</LINE>
+            <LINE>hostname R1</LINE>
+            <LINE>end</LINE>
+          </RUNNINGCONFIG>
+        </ENGINE>
+      </DEVICE>
+      <DEVICE>
+        <ENGINE>
+          <TYPE customModel="" model="2960-24TT">Switch</TYPE>
+          <NAME translate="true">SW1</NAME>
+          <SERIALNUMBER>FOC0001SW1-</SERIALNUMBER>
+          <VLANS>
+            <VLAN name="default" number="1" />
+            <VLAN name="VENTAS" number="10" />
+          </VLANS>
+          <RUNNINGCONFIG>
+            <LINE>version 15.0</LINE>
+            <LINE>hostname SW1</LINE>
+            <LINE>end</LINE>
+          </RUNNINGCONFIG>
+        </ENGINE>
+      </DEVICE>
+      <DEVICE>
+        <ENGINE>
+          <TYPE customModel="" model="Server-PT">Server</TYPE>
+          <NAME translate="true">SRV-DHCP</NAME>
+          <SERIALNUMBER>PTT0001SRV-</SERIALNUMBER>
+          <PORT>
+            <MACADDRESS>0001.0001.0001</MACADDRESS>
+            <IP>192.168.1.2</IP>
+            <SUBNET>255.255.255.0</SUBNET>
+            <PORT_GATEWAY>192.168.1.1</PORT_GATEWAY>
+          </PORT>
+          <DHCP_SERVER>
+            <ENABLED>1</ENABLED>
+            <POOLS>
+              <POOL>
+                <NAME>serverPool</NAME>
+                <NETWORK>192.168.1.0</NETWORK>
+                <MASK>255.255.255.0</MASK>
+                <DEFAULT_ROUTER>192.168.1.1</DEFAULT_ROUTER>
+                <START_IP>192.168.1.10</START_IP>
+                <END_IP>192.168.1.50</END_IP>
+                <DNS_SERVER>8.8.8.8</DNS_SERVER>
+                <MAX_USERS>41</MAX_USERS>
+                <DHCP_POOL_LEASES>
+                  <DHCP_POOL_LEASE>
+                    <MAC_ADDRESS>00AA.00AA.00AA</MAC_ADDRESS>
+                    <IP_ADDRESS>192.168.1.10</IP_ADDRESS>
+                  </DHCP_POOL_LEASE>
+                </DHCP_POOL_LEASES>
+              </POOL>
+            </POOLS>
+          </DHCP_SERVER>
+        </ENGINE>
+      </DEVICE>
+      <DEVICE>
+        <ENGINE>
+          <TYPE customModel="" model="PC-PT">Pc</TYPE>
+          <NAME translate="true">PC-DHCP</NAME>
+          <PORT>
+            <MACADDRESS>00AA.00AA.00AA</MACADDRESS>
+            <PORT_DHCP_ENABLE>true</PORT_DHCP_ENABLE>
+          </PORT>
+        </ENGINE>
+      </DEVICE>
+      <DEVICE>
+        <ENGINE>
+          <TYPE customModel="" model="PC-PT">Pc</TYPE>
+          <NAME translate="true">PC-APIPA</NAME>
+          <PORT>
+            <MACADDRESS>00BB.00BB.00BB</MACADDRESS>
+            <PORT_DHCP_ENABLE>true</PORT_DHCP_ENABLE>
+            <IP>169.254.10.20</IP>
+            <SUBNET>255.255.0.0</SUBNET>
+          </PORT>
+        </ENGINE>
+      </DEVICE>
+      <DEVICE>
+        <ENGINE>
+          <TYPE customModel="" model="Laptop-PT">Laptop</TYPE>
+          <NAME translate="true">LAPTOP-FIJA</NAME>
+          <PORT>
+            <MACADDRESS>00CC.00CC.00CC</MACADDRESS>
+            <PORT_DHCP_ENABLE>false</PORT_DHCP_ENABLE>
+            <IP>192.168.1.100</IP>
+            <SUBNET>255.255.255.0</SUBNET>
+            <PORT_GATEWAY>192.168.1.1</PORT_GATEWAY>
+            <PORT_DNS>8.8.8.8</PORT_DNS>
+          </PORT>
+        </ENGINE>
+      </DEVICE>
+      <DEVICE>
+        <ENGINE>
+          <TYPE customModel="" model="Hub-PT">Hub</TYPE>
+          <NAME translate="true">Hub0</NAME>
+          <POWER>true</POWER>
+          <SERIALNUMBER>PTT0001HUB-</SERIALNUMBER>
+          <PORT>
+            <MACADDRESS>00DD.00DD.0001</MACADDRESS>
+          </PORT>
+          <EXT_ATTRIBUTES>wattage:5;rack units:1;cost:100</EXT_ATTRIBUTES>
+        </ENGINE>
+      </DEVICE>
+      <DEVICE>
+        <ENGINE>
+          <TYPE customModel="" model="Hub-PT">Hub</TYPE>
+          <NAME translate="true">Hub0</NAME>
+          <POWER>false</POWER>
+          <SERIALNUMBER>PTT0002HUB-</SERIALNUMBER>
+        </ENGINE>
+      </DEVICE>
+      <DEVICE>
+        <ENGINE>
+          <TYPE customModel="" model="Temperature Sensor">Sensor</TYPE>
+          <NAME translate="true">Sensor0</NAME>
+          <SERIALNUMBER>PTT0001IOT-</SERIALNUMBER>
+        </ENGINE>
+      </DEVICE>
+      <DEVICE>
+        <ENGINE>
+          <TYPE customModel="" model="SMARTPHONE-PT">Smart Phone</TYPE>
+          <NAME translate="true">Celu</NAME>
+          <PORT>
+            <MACADDRESS>00EE.00EE.00EE</MACADDRESS>
+            <PORT_DHCP_ENABLE>false</PORT_DHCP_ENABLE>
+            <IP>192.168.1.150</IP>
+            <SUBNET>255.255.255.0</SUBNET>
+          </PORT>
+        </ENGINE>
+      </DEVICE>
+    </DEVICES>
+  </NETWORK>
+</PACKETTRACER5>

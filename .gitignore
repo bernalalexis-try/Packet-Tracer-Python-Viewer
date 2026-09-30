@@ -1,0 +1,10 @@
+__pycache__/
+
+# Proyectos de Packet Tracer (pueden tener datos privados)
+*.pkt
+*.xml
+!tests/ejemplo.xml
+
+# Reportes exportados
+reporte.txt
+*-reporte.txt

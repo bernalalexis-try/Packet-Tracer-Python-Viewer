@@ -1,3 +1,6 @@
+import argparse
+import contextlib
+import io
 import sys
 
 from viewers import (
@@ -21,6 +24,79 @@ from viewers import (
     switchViewer,
     tvViewer,
 )
+from viewers.comun import encontrar_xml
+
+
+def cargar_categorias(ruta_xml):
+    """Parsea el XML y devuelve (titulo, prompt, dispositivos, menu, todo) por categoría."""
+    leases = pcViewer.parsear_leases_dhcp(ruta_xml)
+
+    def con_leases(funcion):
+        return lambda nombre, datos: funcion(nombre, datos, leases)
+
+    categorias = [
+        ("Routers", "Router", routerViewer.parsear_routers, routerViewer.menu_router, routerViewer.mostrar_todo),
+        ("Switches", "Switch", switchViewer.parsear_switches, switchViewer.menu_switch, switchViewer.mostrar_todo),
+        (
+            "PCs / Laptops", "PC/Laptop", pcViewer.parsear_hosts,
+            con_leases(pcViewer.menu_host), con_leases(pcViewer.mostrar_todo),
+        ),
+        ("Servers", "Server", serverViewer.parsear_servers, serverViewer.menu_server, serverViewer.mostrar_todo),
+        (
+            "Access Points", "Access Point", accessPointViewer.parsear_access_points,
+            accessPointViewer.menu_ap, accessPointViewer.mostrar_todo,
+        ),
+        ("Hubs", "Hub", hubViewer.parsear_dispositivos, hubViewer.menu_dispositivo, hubViewer.mostrar_todo),
+        ("Bridges", "Bridge", bridgeViewer.parsear_dispositivos, bridgeViewer.menu_dispositivo, bridgeViewer.mostrar_todo),
+        (
+            "Firewalls", "Firewall", firewallViewer.parsear_dispositivos,
+            firewallViewer.menu_dispositivo, firewallViewer.mostrar_todo,
+        ),
+        ("Clouds", "Cloud", cloudViewer.parsear_dispositivos, cloudViewer.menu_dispositivo, cloudViewer.mostrar_todo),
+        (
+            "DSL Modems", "DSL Modem", dslModemViewer.parsear_dispositivos,
+            dslModemViewer.menu_dispositivo, dslModemViewer.mostrar_todo,
+        ),
+        (
+            "Power Distribution Devices", "Power Distribution Device",
+            powerDistributionDeviceViewer.parsear_dispositivos,
+            powerDistributionDeviceViewer.menu_dispositivo, powerDistributionDeviceViewer.mostrar_todo,
+        ),
+        (
+            "Cable Modems", "Cable Modem", cableModemViewer.parsear_dispositivos,
+            cableModemViewer.menu_dispositivo, cableModemViewer.mostrar_todo,
+        ),
+        (
+            "Home Wireless Routers", "Home Wireless Router", homeWirelessRouterViewer.parsear_dispositivos,
+            homeWirelessRouterViewer.menu_dispositivo, homeWirelessRouterViewer.mostrar_todo,
+        ),
+        (
+            "Repeaters", "Repeater", repeaterViewer.parsear_dispositivos,
+            repeaterViewer.menu_dispositivo, repeaterViewer.mostrar_todo,
+        ),
+        (
+            "Printers", "Printer", printerViewer.parsear_dispositivos,
+            printerViewer.menu_dispositivo, printerViewer.mostrar_todo,
+        ),
+        (
+            "IP Phones", "IP Phone", ipPhoneViewer.parsear_dispositivos,
+            ipPhoneViewer.menu_dispositivo, ipPhoneViewer.mostrar_todo,
+        ),
+        ("TVs", "TV", tvViewer.parsear_dispositivos, tvViewer.menu_dispositivo, tvViewer.mostrar_todo),
+        (
+            "Smartphones / Tablets", "Smartphone/Tablet", smartphoneTabletViewer.parsear_hosts,
+            con_leases(smartphoneTabletViewer.menu_host), con_leases(smartphoneTabletViewer.mostrar_todo),
+        ),
+        (
+            "Dispositivos IoT", "Dispositivo IoT", iotViewer.parsear_dispositivos,
+            iotViewer.menu_dispositivo, iotViewer.mostrar_todo,
+        ),
+    ]
+
+    return [
+        (titulo, prompt, parsear(ruta_xml), menu, todo)
+        for titulo, prompt, parsear, menu, todo in categorias
+    ]
 
 
 def flujo_dispositivo(nombre_categoria, dispositivos, prompt, menu_func):
@@ -57,107 +133,58 @@ def flujo_dispositivo(nombre_categoria, dispositivos, prompt, menu_func):
         menu_func(coincidencia, dispositivos[coincidencia])
 
 
+def generar_reporte(categorias):
+    """Devuelve en un solo texto la sección "Todo" de cada dispositivo."""
+    salida = io.StringIO()
+    with contextlib.redirect_stdout(salida):
+        for titulo, _, dispositivos, _, mostrar_todo in categorias:
+            if not dispositivos:
+                continue
+            print(f"\n{'#' * 60}\n# {titulo.upper()} ({len(dispositivos)})\n{'#' * 60}")
+            for nombre, datos in dispositivos.items():
+                print(f"\n----- {nombre} -----")
+                mostrar_todo(nombre, datos)
+    return salida.getvalue().lstrip("\n")
+
+
+def exportar(categorias, ruta_salida):
+    with open(ruta_salida, "w", encoding="utf-8") as f:
+        f.write(generar_reporte(categorias))
+    print(f"Reporte guardado en '{ruta_salida}'.")
+
+
 def main():
-    ruta_xml = routerViewer.encontrar_xml()
-    routers = routerViewer.parsear_routers(ruta_xml)
-    switches = switchViewer.parsear_switches(ruta_xml)
-    hosts = pcViewer.parsear_hosts(ruta_xml)
-    leases = pcViewer.parsear_leases_dhcp(ruta_xml)
-    servers = serverViewer.parsear_servers(ruta_xml)
-    aps = accessPointViewer.parsear_access_points(ruta_xml)
-    hubs = hubViewer.parsear_dispositivos(ruta_xml)
-    bridges = bridgeViewer.parsear_dispositivos(ruta_xml)
-    firewalls = firewallViewer.parsear_dispositivos(ruta_xml)
-    clouds = cloudViewer.parsear_dispositivos(ruta_xml)
-    dsl_modems = dslModemViewer.parsear_dispositivos(ruta_xml)
-    pdds = powerDistributionDeviceViewer.parsear_dispositivos(ruta_xml)
-    cable_modems = cableModemViewer.parsear_dispositivos(ruta_xml)
-    home_routers = homeWirelessRouterViewer.parsear_dispositivos(ruta_xml)
-    repeaters = repeaterViewer.parsear_dispositivos(ruta_xml)
-    printers = printerViewer.parsear_dispositivos(ruta_xml)
-    ip_phones = ipPhoneViewer.parsear_dispositivos(ruta_xml)
-    tvs = tvViewer.parsear_dispositivos(ruta_xml)
-    moviles = smartphoneTabletViewer.parsear_hosts(ruta_xml)
-    moviles_leases = smartphoneTabletViewer.parsear_leases_dhcp(ruta_xml)
-    iots = iotViewer.parsear_dispositivos(ruta_xml)
+    parser = argparse.ArgumentParser(description="Muestra los dispositivos de un .xml de Packet Tracer.")
+    parser.add_argument("xml", nargs="?", help="archivo .xml descifrado con Unpacket")
+    parser.add_argument("--exportar", metavar="ARCHIVO", help="guarda todo en un .txt y sale")
+    args = parser.parse_args()
+
+    ruta_xml = encontrar_xml(args.xml)
+    categorias = cargar_categorias(ruta_xml)
+
+    if args.exportar:
+        exportar(categorias, args.exportar)
+        return
+
+    opcion_exportar = str(len(categorias) + 1)
 
     while True:
-        print("""
-1. Routers
-2. Switches
-3. PCs / Laptops
-4. Servers
-5. Access Points
-6. Hubs
-7. Bridges
-8. Firewalls
-9. Clouds
-10. DSL Modems
-11. Power Distribution Devices
-12. Cable Modems
-13. Home Wireless Routers
-14. Repeaters
-15. Printers
-16. IP Phones
-17. TVs
-18. Smartphones / Tablets
-19. Dispositivos IoT
-0. Salir
-""")
+        print()
+        for i, (titulo, _, dispositivos, _, _) in enumerate(categorias, start=1):
+            print(f"{i}. {titulo} ({len(dispositivos)})")
+        print(f"{opcion_exportar}. Exportar todo a un .txt")
+        print("0. Salir\n")
+
         opcion = input("Selecciona una opción: ").strip()
 
         if opcion == "0":
             sys.exit(0)
-        elif opcion == "1":
-            flujo_dispositivo("Routers", routers, "Router: ", routerViewer.menu_router)
-        elif opcion == "2":
-            flujo_dispositivo("Switches", switches, "Switch: ", switchViewer.menu_switch)
-        elif opcion == "3":
-            flujo_dispositivo(
-                "PCs/Laptops", hosts, "PC/Laptop: ",
-                lambda n, d: pcViewer.menu_host(n, d, leases),
-            )
-        elif opcion == "4":
-            flujo_dispositivo("Servers", servers, "Server: ", serverViewer.menu_server)
-        elif opcion == "5":
-            flujo_dispositivo("Access Points", aps, "Access Point: ", accessPointViewer.menu_ap)
-        elif opcion == "6":
-            flujo_dispositivo("Hubs", hubs, "Hub: ", hubViewer.menu_dispositivo)
-        elif opcion == "7":
-            flujo_dispositivo("Bridges", bridges, "Bridge: ", bridgeViewer.menu_dispositivo)
-        elif opcion == "8":
-            flujo_dispositivo("Firewalls", firewalls, "Firewall: ", firewallViewer.menu_dispositivo)
-        elif opcion == "9":
-            flujo_dispositivo("Clouds", clouds, "Cloud: ", cloudViewer.menu_dispositivo)
-        elif opcion == "10":
-            flujo_dispositivo("DSL Modems", dsl_modems, "DSL Modem: ", dslModemViewer.menu_dispositivo)
-        elif opcion == "11":
-            flujo_dispositivo(
-                "Power Distribution Devices", pdds, "Power Distribution Device: ",
-                powerDistributionDeviceViewer.menu_dispositivo,
-            )
-        elif opcion == "12":
-            flujo_dispositivo("Cable Modems", cable_modems, "Cable Modem: ", cableModemViewer.menu_dispositivo)
-        elif opcion == "13":
-            flujo_dispositivo(
-                "Home Wireless Routers", home_routers, "Home Wireless Router: ",
-                homeWirelessRouterViewer.menu_dispositivo,
-            )
-        elif opcion == "14":
-            flujo_dispositivo("Repeaters", repeaters, "Repeater: ", repeaterViewer.menu_dispositivo)
-        elif opcion == "15":
-            flujo_dispositivo("Printers", printers, "Printer: ", printerViewer.menu_dispositivo)
-        elif opcion == "16":
-            flujo_dispositivo("IP Phones", ip_phones, "IP Phone: ", ipPhoneViewer.menu_dispositivo)
-        elif opcion == "17":
-            flujo_dispositivo("TVs", tvs, "TV: ", tvViewer.menu_dispositivo)
-        elif opcion == "18":
-            flujo_dispositivo(
-                "Smartphones/Tablets", moviles, "Smartphone/Tablet: ",
-                lambda n, d: smartphoneTabletViewer.menu_host(n, d, moviles_leases),
-            )
-        elif opcion == "19":
-            flujo_dispositivo("Dispositivos IoT", iots, "Dispositivo IoT: ", iotViewer.menu_dispositivo)
+        elif opcion == opcion_exportar:
+            ruta_salida = input("Nombre del archivo (Enter = reporte.txt): ").strip() or "reporte.txt"
+            exportar(categorias, ruta_salida)
+        elif opcion.isdigit() and 1 <= int(opcion) <= len(categorias):
+            titulo, prompt, dispositivos, menu, _ = categorias[int(opcion) - 1]
+            flujo_dispositivo(titulo, dispositivos, f"{prompt}: ", menu)
         else:
             print("Opción inválida.\n")
 

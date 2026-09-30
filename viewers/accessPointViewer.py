@@ -1,17 +1,9 @@
-import glob
-import os
 import re
-import sys
 
-
-def encontrar_xml():
-    base = os.path.dirname(os.path.abspath(__file__))
-    raiz = os.path.dirname(base)
-    candidatos = glob.glob(os.path.join(raiz, "*.xml")) + glob.glob(os.path.join(base, "*.xml"))
-    if not candidatos:
-        print("No se encontró ningún archivo .xml en el proyecto.")
-        sys.exit(1)
-    return candidatos[0]
+try:
+    from viewers.comun import agregar_dispositivo, decodificar, encontrar_xml
+except ImportError:  # al correrlo directo: py viewers/accessPointViewer.py
+    from comun import agregar_dispositivo, decodificar, encontrar_xml
 
 
 def _texto(bloque, tag):
@@ -47,7 +39,7 @@ def parsear_access_points(ruta_xml):
         wireless_match = re.search(r"<WIRELESS_SERVER>.*?</WIRELESS_SERVER>", bloque, re.DOTALL)
         wireless = wireless_match.group(0) if wireless_match else ""
 
-        aps[nombre] = {
+        datos = {
             "modelo": modelo,
             "serial": serial,
             "mac_ethernet": mac_ethernet,
@@ -62,6 +54,7 @@ def parsear_access_points(ruta_xml):
             "authen_type": _texto(wireless, "AUTHEN_TYPE"),
             "clave": _texto(wireless, "KEY"),
         }
+        agregar_dispositivo(aps, decodificar(nombre), decodificar(datos))
 
     return aps
 

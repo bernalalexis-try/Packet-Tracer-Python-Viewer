@@ -1,17 +1,9 @@
-import glob
-import os
 import re
-import sys
 
-
-def encontrar_xml():
-    base = os.path.dirname(os.path.abspath(__file__))
-    raiz = os.path.dirname(base)
-    candidatos = glob.glob(os.path.join(raiz, "*.xml")) + glob.glob(os.path.join(base, "*.xml"))
-    if not candidatos:
-        print("No se encontró ningún archivo .xml en el proyecto.")
-        sys.exit(1)
-    return candidatos[0]
+try:
+    from viewers.comun import agregar_dispositivo, decodificar, encontrar_xml
+except ImportError:  # al correrlo directo: py viewers/serverViewer.py
+    from comun import agregar_dispositivo, decodificar, encontrar_xml
 
 
 def _texto(bloque, tag):
@@ -43,7 +35,7 @@ def parsear_servers(ruta_xml):
         port_match = re.search(r"<PORT>.*?</PORT>", bloque, re.DOTALL)
         port = port_match.group(0) if port_match else ""
 
-        servers[nombre] = {
+        datos = {
             "modelo": modelo,
             "serial": serial,
             "mac": _texto(port, "MACADDRESS"),
@@ -51,8 +43,11 @@ def parsear_servers(ruta_xml):
             "mask": _texto(port, "SUBNET"),
             "gateway": _texto(port, "PORT_GATEWAY"),
             "dns": _texto(port, "PORT_DNS"),
-            "bloque": bloque,
         }
+        # El bloque queda crudo: se interpreta recién al mostrar cada servicio.
+        datos = decodificar(datos)
+        datos["bloque"] = bloque
+        agregar_dispositivo(servers, decodificar(nombre), datos)
 
     return servers
 
@@ -80,7 +75,7 @@ def parsear_dhcp(bloque):
             "leases_activos": cantidad_leases,
         })
 
-    return {"habilitado": habilitado, "pools": pools}
+    return decodificar({"habilitado": habilitado, "pools": pools})
 
 
 def parsear_dns(bloque):
@@ -101,7 +96,7 @@ def parsear_dns(bloque):
             "ip": _texto(rr, "IPADDRESS"),
         })
 
-    return {"habilitado": habilitado, "registros": registros}
+    return decodificar({"habilitado": habilitado, "registros": registros})
 
 
 def parsear_http(bloque):
@@ -110,11 +105,11 @@ def parsear_http(bloque):
         return {"habilitado": False, "usuario": None, "password": None}
 
     http_bloque = m.group(0)
-    return {
+    return decodificar({
         "habilitado": _texto(http_bloque, "ENABLED") == "1",
         "usuario": _texto(http_bloque, "USERNAME"),
         "password": _texto(http_bloque, "PASSWORD"),
-    }
+    })
 
 
 def parsear_ftp(bloque):
@@ -134,7 +129,7 @@ def parsear_ftp(bloque):
             "permisos": _texto(cuenta, "PERMISSIONS"),
         })
 
-    return {"habilitado": habilitado, "cuentas": cuentas}
+    return decodificar({"habilitado": habilitado, "cuentas": cuentas})
 
 
 def parsear_email(bloque):
@@ -143,12 +138,12 @@ def parsear_email(bloque):
         return {"smtp": False, "pop3": False, "dominio": None, "usuarios": None}
 
     email_bloque = m.group(0)
-    return {
+    return decodificar({
         "smtp": _texto(email_bloque, "SMTP_ENABLED") == "1",
         "pop3": _texto(email_bloque, "POP3_ENABLED") == "1",
         "dominio": _texto(email_bloque, "SMTP_DOMAIN"),
         "usuarios": _texto(email_bloque, "NO_OF_USERS"),
-    }
+    })
 
 
 def mostrar_identidad(nombre, datos):
