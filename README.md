@@ -4,15 +4,16 @@ Herramienta que lee archivos de topología de Cisco Packet Tracer (.xml, descifr
 
 ## Uso
 
-1. Descifrá tu archivo `.pkt` a `.xml` usando [Unpacket](https://github.com/Punkcake21/Unpacket.git):
-   ```
-   py unpacket.py tu_proyecto.pkt -o tu_proyecto.xml
-   ```
-2. Abrir el archivo `HTML`
+1. Abrir el archivo `viewer.html` en el navegador.
 
-3. Abrir el archivo `.xml` como indica la pagina
+2. Arrastrar el archivo `.pkt` a la página (o hacer clic para elegirlo). Se descifra automáticamente en el navegador, sin subirlo a ningún lado. También acepta un `.xml` ya descifrado. Los `.pka` (actividades) no se admiten.
 
-4. Con el botón **Descargar reporte .txt** se guarda la información de todos los dispositivos en un archivo de texto.
+3. Con el botón **Descargar reporte .txt** se guarda la información de todos los dispositivos en un archivo de texto.
+
+El descifrado de `.pkt` en la página es una traducción a JavaScript de [Unpacket](https://github.com/Punkcake21/Unpacket.git) (licencia MIT, ver `THIRD_PARTY_NOTICES.md`). Para usar `main.py` desde la consola, el `.pkt` se sigue descifrando antes con Unpacket:
+```
+py unpacket.py tu_proyecto.pkt -o tu_proyecto.xml
+```
 
 ## Uso desde la consola
 
