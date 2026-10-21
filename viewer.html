@@ -222,10 +222,10 @@
 <div id="zona-carga">
   <div id="dropzone">
     <h1>Packet Tracer Python Viewer</h1>
-    <p>Arrastra aca tu archivo .xml (ya descifrado con Unpacket), o hace clic para elegirlo</p>
+    <p>Arrastra aca tu archivo .pkt (o un .xml ya descifrado), o hace clic para elegirlo</p>
   </div>
   <div id="error-carga"></div>
-  <input type="file" id="input-archivo" accept=".xml">
+  <input type="file" id="input-archivo" accept=".pkt,.xml">
 </div>
 
 <div id="acciones">
@@ -1501,33 +1501,254 @@ document.getElementById("descargar-reporte").addEventListener("click", () => {
   const blob = new Blob([reporteActual], { type: "text/plain;charset=utf-8" });
   const enlace = document.createElement("a");
   enlace.href = URL.createObjectURL(blob);
-  enlace.download = `${nombreArchivoActual.replace(/\.xml$/i, "") || "topologia"}-reporte.txt`;
+  enlace.download = `${nombreArchivoActual.replace(/\.(xml|pkt)$/i, "") || "topologia"}-reporte.txt`;
   enlace.click();
   URL.revokeObjectURL(enlace.href);
 });
 
-function procesarArchivo(archivo) {
+// ---------------------------------------------------------------------------
+// Descifrado de archivos .pkt de Cisco Packet Tracer, en el navegador.
+//
+// Es una traducción a JavaScript de Unpacket (https://github.com/Punkcake21/Unpacket,
+// licencia MIT, Copyright (c) 2026 Punkcake21; ver THIRD_PARTY_NOTICES.md).
+// El cifrado Twofish deriva de la implementación de Dr Brian Gladman (1999),
+// adaptada a Python por Bjorn Edstrom (2007).
+//
+// Pasos, en orden: desofuscación 1, Twofish-EAX, desofuscación 2 y
+// descompresión qCompress (4 bytes de tamaño + zlib).
+// Solo para .pkt: los .pka (actividades) usan otra clave y no se admiten.
+// ---------------------------------------------------------------------------
+const PKT = (() => {
+  const ror4 = [0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15];
+  const ashx = [0, 9, 2, 11, 4, 13, 6, 15, 8, 1, 10, 3, 12, 5, 14, 7];
+  const qt0 = [[8, 1, 7, 13, 6, 15, 3, 2, 0, 11, 5, 9, 14, 12, 10, 4],
+               [2, 8, 11, 13, 15, 7, 6, 14, 3, 1, 9, 4, 0, 10, 12, 5]];
+  const qt1 = [[14, 12, 11, 8, 1, 2, 3, 5, 15, 4, 10, 6, 7, 0, 9, 13],
+               [1, 14, 2, 11, 4, 12, 3, 7, 6, 13, 10, 5, 15, 9, 0, 8]];
+  const qt2 = [[11, 10, 5, 14, 6, 13, 9, 0, 12, 8, 15, 3, 2, 4, 7, 1],
+               [4, 12, 7, 5, 1, 6, 9, 10, 0, 14, 13, 8, 2, 11, 3, 15]];
+  const qt3 = [[13, 7, 15, 4, 1, 2, 6, 14, 9, 11, 3, 0, 8, 5, 12, 10],
+               [11, 9, 5, 1, 12, 3, 13, 14, 6, 4, 7, 15, 2, 0, 8, 10]];
+  const tab5b = [0, 90, 180, 238];
+  const tabEf = [0, 238, 180, 90];
+
+  const rotl = (x, n) => ((x << n) | (x >>> (32 - n))) >>> 0;
+  const rotr = (x, n) => ((x >>> n) | (x << (32 - n))) >>> 0;
+  const byte = (x, n) => (x >>> (8 * n)) & 0xff;
+
+  function qp(n, x) {
+    const a0 = x >> 4, b0 = x & 15;
+    const a1 = a0 ^ b0, b1 = ror4[b0] ^ ashx[a0];
+    const a2 = qt0[n][a1], b2 = qt1[n][b1];
+    const a3 = a2 ^ b2, b3 = ror4[b2] ^ ashx[a2];
+    return (qt3[n][b3] << 4) | qt2[n][a3];
+  }
+
+  const q = [new Uint8Array(256), new Uint8Array(256)];
+  const m = [0, 1, 2, 3].map(() => new Uint32Array(256));
+  for (let i = 0; i < 256; i++) {
+    q[0][i] = qp(0, i);
+    q[1][i] = qp(1, i);
+  }
+  for (let i = 0; i < 256; i++) {
+    let f01 = q[1][i];
+    let f5b = f01 ^ (f01 >> 2) ^ tab5b[f01 & 3];
+    let fef = f01 ^ (f01 >> 1) ^ (f01 >> 2) ^ tabEf[f01 & 3];
+    m[0][i] = (f01 + (f5b << 8) + (fef << 16) + (fef << 24)) >>> 0;
+    m[2][i] = (f5b + (fef << 8) + (f01 << 16) + (fef << 24)) >>> 0;
+    f01 = q[0][i];
+    f5b = f01 ^ (f01 >> 2) ^ tab5b[f01 & 3];
+    fef = f01 ^ (f01 >> 1) ^ (f01 >> 2) ^ tabEf[f01 & 3];
+    m[1][i] = (fef + (fef << 8) + (f5b << 16) + (f01 << 24)) >>> 0;
+    m[3][i] = (f5b + (f01 << 8) + (fef << 16) + (f5b << 24)) >>> 0;
+  }
+
+  // Función h para claves de 128 bits (las de los .pkt).
+  function h(x, key) {
+    const b0 = q[0][q[0][byte(x, 0)] ^ byte(key[1], 0)] ^ byte(key[0], 0);
+    const b1 = q[0][q[1][byte(x, 1)] ^ byte(key[1], 1)] ^ byte(key[0], 1);
+    const b2 = q[1][q[0][byte(x, 2)] ^ byte(key[1], 2)] ^ byte(key[0], 2);
+    const b3 = q[1][q[1][byte(x, 3)] ^ byte(key[1], 3)] ^ byte(key[0], 3);
+    return (m[0][b0] ^ m[1][b1] ^ m[2][b2] ^ m[3][b3]) >>> 0;
+  }
+
+  function mdsRem(p0, p1) {
+    for (let i = 0; i < 8; i++) {
+      const t = p1 >>> 24;
+      p1 = ((p1 << 8) | (p0 >>> 24)) >>> 0;
+      p0 = (p0 << 8) >>> 0;
+      let u = (t << 1) >>> 0;
+      if (t & 0x80) u ^= 0x14d;
+      p1 = (p1 ^ t ^ (u << 16)) >>> 0;
+      u ^= t >>> 1;
+      if (t & 0x01) u ^= 0x14d >>> 1;
+      p1 = (p1 ^ (u << 24) ^ (u << 8)) >>> 0;
+    }
+    return p1;
+  }
+
+  // Devuelve una función que cifra un bloque de 16 bytes con la clave dada.
+  function twofish128(clave) {
+    const vista = new DataView(clave.buffer, clave.byteOffset, 16);
+    const k = [0, 1, 2, 3].map((i) => vista.getUint32(4 * i, true));
+    const meKey = [k[0], k[2]];
+    const moKey = [k[1], k[3]];
+    const sKey = [mdsRem(k[2], k[3]), mdsRem(k[0], k[1])];
+    const lKey = new Uint32Array(40);
+    for (let i = 0; i < 40; i += 2) {
+      const a = h((0x01010101 * i) >>> 0, meKey);
+      const b = rotl(h((0x01010101 * (i + 1)) >>> 0, moKey), 8);
+      lKey[i] = (a + b) >>> 0;
+      lKey[i + 1] = rotl((a + 2 * b) >>> 0, 9);
+    }
+    const mk = [0, 1, 2, 3].map(() => new Uint32Array(256));
+    for (let i = 0; i < 256; i++) {
+      mk[0][i] = m[0][q[0][q[0][i] ^ byte(sKey[1], 0)] ^ byte(sKey[0], 0)];
+      mk[1][i] = m[1][q[0][q[1][i] ^ byte(sKey[1], 1)] ^ byte(sKey[0], 1)];
+      mk[2][i] = m[2][q[1][q[0][i] ^ byte(sKey[1], 2)] ^ byte(sKey[0], 2)];
+      mk[3][i] = m[3][q[1][q[1][i] ^ byte(sKey[1], 3)] ^ byte(sKey[0], 3)];
+    }
+    const g0 = (x) => mk[0][byte(x, 0)] ^ mk[1][byte(x, 1)] ^ mk[2][byte(x, 2)] ^ mk[3][byte(x, 3)];
+    const g1 = (x) => mk[0][byte(x, 3)] ^ mk[1][byte(x, 0)] ^ mk[2][byte(x, 1)] ^ mk[3][byte(x, 2)];
+
+    return function cifrarBloque(entrada) {
+      const v = new DataView(entrada.buffer, entrada.byteOffset, 16);
+      const blk = [0, 1, 2, 3].map((i) => (v.getUint32(4 * i, true) ^ lKey[i]) >>> 0);
+      for (let i = 0; i < 8; i++) {
+        let t1 = g1(blk[1]), t0 = g0(blk[0]);
+        blk[2] = rotr((blk[2] ^ ((t0 + t1 + lKey[4 * i + 8]) >>> 0)) >>> 0, 1);
+        blk[3] = (rotl(blk[3], 1) ^ ((t0 + 2 * t1 + lKey[4 * i + 9]) >>> 0)) >>> 0;
+        t1 = g1(blk[3]);
+        t0 = g0(blk[2]);
+        blk[0] = rotr((blk[0] ^ ((t0 + t1 + lKey[4 * i + 10]) >>> 0)) >>> 0, 1);
+        blk[1] = (rotl(blk[1], 1) ^ ((t0 + 2 * t1 + lKey[4 * i + 11]) >>> 0)) >>> 0;
+      }
+      const salida = new Uint8Array(16);
+      const o = new DataView(salida.buffer);
+      o.setUint32(0, (blk[2] ^ lKey[4]) >>> 0, true);
+      o.setUint32(4, (blk[3] ^ lKey[5]) >>> 0, true);
+      o.setUint32(8, (blk[0] ^ lKey[6]) >>> 0, true);
+      o.setUint32(12, (blk[1] ^ lKey[7]) >>> 0, true);
+      return salida;
+    };
+  }
+
+  const xor16 = (a, b) => a.map((x, i) => x ^ b[i]);
+
+  function dobleGF(bloque) {
+    const r = new Uint8Array(16);
+    for (let i = 0; i < 16; i++) r[i] = ((bloque[i] << 1) | (i < 15 ? bloque[i + 1] >> 7 : 0)) & 0xff;
+    if (bloque[0] & 0x80) r[15] ^= 0x87;
+    return r;
+  }
+
+  // CMAC (OMAC1) sobre [15 ceros, prefijo] + datos, como el EAX de Crypto++.
+  function omac(cifrar, k1, k2, prefijo, datos) {
+    const total = new Uint8Array(16 + datos.length);
+    total[15] = prefijo;
+    total.set(datos, 16);
+    const n = Math.ceil(total.length / 16);
+    let x = new Uint8Array(16);
+    for (let b = 0; b < n - 1; b++) x = cifrar(xor16(x, total.subarray(16 * b, 16 * b + 16)));
+    const resto = total.subarray(16 * (n - 1));
+    let ultimo;
+    if (resto.length === 16) {
+      ultimo = xor16(resto, k1);
+    } else {
+      ultimo = new Uint8Array(16);
+      ultimo.set(resto);
+      ultimo[resto.length] = 0x80;
+      ultimo = xor16(ultimo, k2);
+    }
+    return cifrar(xor16(x, ultimo));
+  }
+
+  function eaxDescifrar(cifrar, nonce, texto, tag) {
+    const k1 = dobleGF(cifrar(new Uint8Array(16)));
+    const k2 = dobleGF(k1);
+    const nTag = omac(cifrar, k1, k2, 0, nonce);
+    const hTag = omac(cifrar, k1, k2, 1, new Uint8Array(0));
+    const cTag = omac(cifrar, k1, k2, 2, texto);
+    const esperado = xor16(xor16(nTag, hTag), cTag);
+    if (!esperado.every((x, i) => x === tag[i])) {
+      throw new Error("el archivo no es un .pkt válido o está dañado");
+    }
+    // CTR con contador big-endian de 128 bits que arranca en nTag.
+    const contador = new Uint8Array(nTag);
+    const salida = new Uint8Array(texto.length);
+    for (let off = 0; off < texto.length; off += 16) {
+      const flujo = cifrar(contador);
+      for (let i = 15; i >= 0; i--) {
+        contador[i] = (contador[i] + 1) & 0xff;
+        if (contador[i] !== 0) break;
+      }
+      const fin = Math.min(16, texto.length - off);
+      for (let i = 0; i < fin; i++) salida[off + i] = texto[off + i] ^ flujo[i];
+    }
+    return salida;
+  }
+
+  async function inflarZlib(datos) {
+    const flujo = new Blob([datos]).stream().pipeThrough(new DecompressionStream("deflate"));
+    return new Uint8Array(await new Response(flujo).arrayBuffer());
+  }
+
+  async function descifrar(buffer) {
+    const datos = new Uint8Array(buffer);
+    const L = datos.length;
+    if (L < 32) throw new Error("el archivo es demasiado chico para ser un .pkt");
+
+    // Desofuscación 1: invertir el orden y aplicar XOR con (L - i*L) & 0xFF.
+    const etapa1 = new Uint8Array(L);
+    const bajoL = L & 0xff;
+    for (let i = 0; i < L; i++) {
+      etapa1[i] = datos[L - 1 - i] ^ ((bajoL * ((1 - i) & 0xff)) & 0xff);
+    }
+
+    // Twofish-EAX con la clave e IV fijos de los .pkt.
+    const cifrar = twofish128(new Uint8Array(16).fill(137));
+    const nonce = new Uint8Array(16).fill(16);
+    const descifrado = eaxDescifrar(cifrar, nonce, etapa1.subarray(0, L - 16), etapa1.subarray(L - 16));
+
+    // Desofuscación 2: XOR con (L2 - i) & 0xFF.
+    const L2 = descifrado.length;
+    for (let i = 0; i < L2; i++) descifrado[i] ^= (L2 - i) & 0xff;
+
+    // qCompress: 4 bytes de tamaño (big-endian) y después zlib.
+    const tamano = new DataView(descifrado.buffer).getUint32(0, false);
+    const xml = await inflarZlib(descifrado.subarray(4));
+    return new TextDecoder("utf-8").decode(xml.subarray(0, tamano));
+  }
+
+  return { descifrar, twofish128 };
+})();
+
+async function procesarArchivo(archivo) {
   const errorCarga = document.getElementById("error-carga");
   errorCarga.textContent = "";
+  const nombre = archivo.name.toLowerCase();
 
-  if (!archivo.name.toLowerCase().endsWith(".xml")) {
-    errorCarga.textContent = "El archivo debe ser un .xml (descifrado con Unpacket a partir del .pkt)";
+  if (nombre.endsWith(".pka")) {
+    errorCarga.textContent = "Los archivos .pka (actividades) no se pueden abrir; usa un .pkt";
+    return;
+  }
+  if (!nombre.endsWith(".pkt") && !nombre.endsWith(".xml")) {
+    errorCarga.textContent = "El archivo debe ser un .pkt de Packet Tracer o un .xml ya descifrado";
     return;
   }
 
-  const lector = new FileReader();
-  lector.onload = (e) => {
-    try {
-      nombreArchivoActual = archivo.name;
-      construirPagina(e.target.result);
-      document.getElementById("zona-carga").classList.add("oculto");
-      document.getElementById("app").classList.add("visible");
-      document.getElementById("acciones").classList.add("visible");
-    } catch (err) {
-      errorCarga.textContent = "No se pudo leer el archivo: " + err.message;
-    }
-  };
-  lector.readAsText(archivo, "utf-8");
+  try {
+    const xml = nombre.endsWith(".pkt")
+      ? await PKT.descifrar(await archivo.arrayBuffer())
+      : await archivo.text();
+    nombreArchivoActual = archivo.name;
+    construirPagina(xml);
+    document.getElementById("zona-carga").classList.add("oculto");
+    document.getElementById("app").classList.add("visible");
+    document.getElementById("acciones").classList.add("visible");
+  } catch (err) {
+    errorCarga.textContent = "No se pudo leer el archivo: " + err.message;
+  }
 }
 
 const dropzone = document.getElementById("dropzone");
